@@ -201,19 +201,7 @@ The main files responsible for MedusaHC operation are:
 - `MHC_variables` — variables for configuring various coordinates, speeds, and similar parameters  
 - `MHC_macros` — the main file containing all macros responsible for MHC functionality  
 
-And the `pin_watch.py` script — in the current version, a dedicated script is used to monitor sensor states. It listens to the sensors in real time and updates variable states accordingly. Based on this data, MHC determines what is installed where and checks for errors.
-
-The file must be uploaded via FTP to the folder:
-
-```
-
-/home/biqu/klipper/klippy/extras
-
-```
-
-(` /home/pi/klipper/klippy/extras ` for Raspberry Pi users)
-
-The script was integrated recently and has not been tested on different systems yet. If problems appear, I will make an additional version that works purely on macros, with manual state updates via a macro. (Feedback is required.)
+In the current version, MHC has integrated sensor monitoring inside the `medusahc.py` module. It listens to the sensors in real time and updates internal tool state accordingly.
 
 All (or at least almost all) macros are designed to be universal and work with any number of hotends. The number of hotends is defined in the configuration and variables. My current config is for **4 hotends** (higher counts have not been tested yet).
 
@@ -221,14 +209,13 @@ All (or at least almost all) macros are designed to be universal and work with a
 
 ### MHC_config file
 
-#### [pin_watch io] block
+#### [medusahc] and [medusahc_tool N] blocks
 
-This block configures the `pin_watch` script.
+Sensor watching is configured directly in `medusahc`:
 
-- `sync_toolchanger: 1` — enables tool initialization in klipper-toolchanger (used for auto-calibration; explanation later).  
-- `verbose` — enables additional console output with detailed pin state information.  
-- `pin_e` — microswitch pin located on the toolhead.  
-- `pin_t0`, `pin_t1`, etc. — microswitch pins on the bases of the corresponding hotends.
+- `pin_e` in `[medusahc]` for the toolhead switch.  
+- `dock_pin` in each `[medusahc_tool N]` section for dock switches.  
+- `verbose` and `assign_delay` in `[medusahc]` for debug/debounce behavior.
 
 #### [duplicate_pin_override]
 
@@ -393,7 +380,7 @@ In general terms:
 
 The **main macro responsible for all tool change procedures is `SET`**. This is the macro called by the `T` macros.
 
-When `SET` is called with a tool parameter (`SET T=0`, `SET T=1`, etc.), the printer checks what is currently installed, based on data from the `pin_watch` script object.
+When `SET` is called with a tool parameter (`SET T=0`, `SET T=1`, etc.), the printer checks what is currently installed based on the integrated medusahc switch state.
 
 - If no hotend is installed, the printer will pick up the requested hotend.  
 - If a different hotend is installed, the printer will first drop it, then pick up the requested one.  
@@ -401,7 +388,7 @@ When `SET` is called with a tool parameter (`SET T=0`, `SET T=1`, etc.), the pri
 
 All of this happens automatically, without the need to manually specify anything.
 
-Thanks to the `pin_watch` script, the printer always knows its state, even if you manually remove or install hotends.
+Thanks to integrated switch monitoring in `medusahc.py`, the printer always knows its state, even if you manually remove or install hotends.
 
 ---
 
@@ -542,45 +529,6 @@ The resulting offsets must be written into the corresponding variables in the
 
 ---
 
-## Automatic Z offset calibration using Eddy-ng
-
-Basic Eddy-ng installation is done according to the standard instructions.
-
-The Eddy mount in this project is made without adjustment and fits the Bambulab hotend clones that I use.
-
-Eddy is quite sensitive to installation height, so you may need to slightly shift the holes in the model and reprint the mount.
-
-The standard Eddy-ng feature set does **not** support working with multiple tools.
-
-For auto-calibration to work, you must replace the `probe_eddy_ng.py` script located in:
-
-```
-
-/home/biqu/eddy-ng
-
-```
-
-with the modified `probe_eddy_ng.py` from this project.
-
-This version can pass the required data to calculate offsets for all tools.
-
-To enable auto-calibration, you need to include the file `eddy_ng_features.cfg`.  
-It contains all the required macros.
-
-Automatic calibration of all available tools can be started with the macro:
-
-```
-
-TOOL_Z_CALIBRATION
-
-```
-
-For accurate calibration, make sure the nozzles of all tools are clean.
-
-After auto-calibration, the calculated offsets are saved to the `saved_vars` file and will be applied on every printer startup.
-
----
-
 ## Full auto-calibration using Sexball
 
 Theoretically, I have an almost working script for auto-calibration using the Sexball sensor.  
@@ -610,23 +558,7 @@ All MHC functionality still works exactly as before.
 
 The only thing klipper-toolchanger needs for auto-calibration is to know which tool is currently active and to pass calibration data back.
 
-To synchronize MHC state with it, you must set:
-
-```
-
-sync_toolchanger: 1
-
-```
-
-in the `[pin_watch io]` script configuration.
-
-To receive calibration data, you must place the modified `tools_calibrate.py` script into:
-
-```
-
-/home/biqu/klipper-toolchanger/klipper/extras
-
-```
+To synchronize state with tool selection and offsets, use the native MedusaHC commands from `medusahc.py` together with `medusahc_calibrate.py`.
 
 Since we are modifying an internal script, automatic updates of klipper-toolchanger will show an error.
 
@@ -639,7 +571,7 @@ If this approach remains the same, a separate fork with updates will be required
 ## Auto-calibration settings
 
 The base auto-calibration settings have not changed.  
-They are located in `calibrate-offsets.cfg`, in the `[tools_calibrate]` block.
+They are located in `calibrate-offsets.cfg`, in the `[medusahc_calibrate]` block.
 
 In the CALIBRATE_MOVE_OVER_PROBE macro, you must specify an approximate point above the center of the Sexball sphere. The point is configured via the variable_probe_x, variable_probe_y, variable_probe_z variables defined at the top of that macro in calibrate-offsets.cfg.
 
