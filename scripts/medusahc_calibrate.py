@@ -1,7 +1,6 @@
-# Nozzle alignment module for 3d kinematic probes and MedusaHC wrappers.
+# Kinematic probe calibration for MedusaHC multi-tool offsets.
 #
-# This module contains full calibration logic and adds MHC_* helper
-# commands that apply/save offsets directly to medusahc runtime/profile state.
+# Applies and persists offsets to medusahc runtime state and save_variables.
 
 import logging
 
@@ -34,7 +33,7 @@ class MedusaHCCalibrate:
             ProbeEndstopWrapper(config, 'z'),
         )
 
-        # Base tools_calibrate parameters
+        # Probe motion parameters
         self.probe_name = config.get('probe', 'probe')
         self.travel_speed = config.getfloat('travel_speed', 10.0, above=0.0)
         self.spread = config.getfloat('spread', 5.0)
@@ -49,7 +48,7 @@ class MedusaHCCalibrate:
         self.last_probe_offset = 0.0
         self.calibration_probe_inactive = True
 
-        # MHC wrapper parameters
+        # Calibration station position
         self.probe_z = config.getfloat("probe_z", 60.0)
         self.probe_x = config.getfloat("probe_x", 223.0)
         self.probe_y = config.getfloat("probe_y", 210.0)
@@ -60,7 +59,7 @@ class MedusaHCCalibrate:
 
         self.gcode = self.printer.lookup_object('gcode')
 
-        # Ported tools_calibrate commands
+        # Low-level probe commands
         self.gcode.register_command('TOOL_LOCATE_SENSOR', self.cmd_TOOL_LOCATE_SENSOR,
                                     desc=self.cmd_TOOL_LOCATE_SENSOR_help)
         self.gcode.register_command('TOOL_CALIBRATE_TOOL_OFFSET', self.cmd_TOOL_CALIBRATE_TOOL_OFFSET,
@@ -72,7 +71,7 @@ class MedusaHCCalibrate:
         self.gcode.register_command('TOOL_CALIBRATE_QUERY_PROBE', self.cmd_TOOL_CALIBRATE_QUERY_PROBE,
                                     desc=self.cmd_TOOL_CALIBRATE_QUERY_PROBE_help)
 
-        # MedusaHC calibration commands (no cfg macros required)
+        # High-level calibration commands
         self.gcode.register_command(
             "CALIBRATE_MOVE_OVER_PROBE", self.cmd_CALIBRATE_MOVE_OVER_PROBE,
             desc="Move to the Sexball calibration station")
@@ -89,7 +88,7 @@ class MedusaHCCalibrate:
             "SAVE_TOOL_GCODE_OFFSETS", self.cmd_SAVE_TOOL_GCODE_OFFSETS,
             desc="Persist medusahc offsets for tool T to save_variables")
 
-    # ---------- Ported tools_calibrate logic ----------
+    # ---------- Probe logic ----------
     def probe_xy(self, toolhead, top_pos, direction, gcmd, samples=None):
         offset = direction_types[direction]
         start_pos = list(top_pos)

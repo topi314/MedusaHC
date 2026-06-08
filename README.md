@@ -6,10 +6,10 @@ Klipper extras for a multi-hotend changer: Python handles sensors, state, valida
 
 | File | Klipper section | Role |
 |------|-----------------|------|
-| `Scripts/medusahc.py` | `[medusahc]` | Orchestrator, `SET`/`DROP`, offsets, Mainsail tool buttons |
-| `Scripts/medusahc_calibrate.py` | `[medusahc_calibrate]` | Sexball kinematic probe calibration (optional) |
+| `scripts/medusahc.py` | `[medusahc]` | Orchestrator, `SET`/`DROP`, offsets, Mainsail tool buttons |
+| `scripts/medusahc_calibrate.py` | `[medusahc_calibrate]` | Sexball kinematic probe calibration (optional) |
 
-No `klipper-toolchanger`, no `pin_watch.py`. Sensor debouncing is built into `medusahc.py` via `[buttons]`.
+Sensor debouncing is built into `medusahc.py` via Klipper `[buttons]`.
 
 ## How it works
 
@@ -17,7 +17,7 @@ No `klipper-toolchanger`, no `pin_watch.py`. Sensor debouncing is built into `me
 medusahc.py          reads switches, validates SET/DROP, exposes printer.medusahc
        │
        ▼  gcode macros
-motion.cfg           OPEN/CLOSE, SET_MOVE, DROP_MOVE, POST_PICKUP, CLEAN_MOVE
+macros.cfg           OPEN/CLOSE, SET_MOVE, DROP_MOVE, POST_PICKUP, CLEAN_MOVE
 ```
 
 - **Tool count** — from contiguous `[medusahc_tool 0]` … `[medusahc_tool N-1]`; no `max_tool`.
@@ -57,9 +57,9 @@ cd ~/MedusaHC
 Manual install:
 
 ```bash
-ln -sf ~/MedusaHC/Scripts/medusahc.py ~/klipper/klippy/extras/
-ln -sf ~/MedusaHC/Scripts/medusahc_calibrate.py ~/klipper/klippy/extras/
-cp -r ~/MedusaHC/Config/medusahc ~/printer_data/config/
+ln -sf ~/MedusaHC/scripts/medusahc.py ~/klipper/klippy/extras/
+ln -sf ~/MedusaHC/scripts/medusahc_calibrate.py ~/klipper/klippy/extras/
+cp -r ~/MedusaHC/config/medusahc ~/printer_data/config/
 ```
 
 ### printer.cfg
@@ -81,11 +81,11 @@ Overrides: `KLIPPER_DIR`, `CONFIG_DIR`, `MOONRAKER_CONF`, `MEDUSAHC_REPO_DIR`, `
 ## Config bundle
 
 ```
-medusahc/
-├── medusahc.cfg           # [medusahc], [medusahc_tool N], [save_variables]
-├── motion.cfg             # motion macros (edit freely)
-├── calibrate-offsets.cfg  # [medusahc_calibrate] probe settings
-└── saved_vars.cfg         # offset persistence
+config/medusahc/
+├── medusahc.cfg    # [medusahc], [medusahc_tool N], [save_variables]
+├── macros.cfg      # motion macros (edit freely)
+├── calibrate.cfg   # [medusahc_calibrate] probe settings
+└── saved_vars.cfg  # offset persistence
 ```
 
 ### `[medusahc]`
@@ -119,7 +119,7 @@ medusahc/
 
 Add or remove tools by adding/removing `[medusahc_tool N]` sections and matching `[extruderN]` in your board config.
 
-### `motion.cfg`
+### `macros.cfg`
 
 Macros called by Python — safe to edit without restarting logic:
 
@@ -133,7 +133,7 @@ Macros called by Python — safe to edit without restarting logic:
 
 ### `[medusahc_calibrate]`
 
-Probe pin, station XY/Z, spread, speeds — see `calibrate-offsets.cfg`. Requires a kinematic probe (Sexball) wired per section `pin`.
+Probe pin, station XY/Z, spread, speeds — see `config/medusahc/calibrate.cfg`. Requires a kinematic probe (Sexball) wired per section `pin`.
 
 ### `[save_variables]`
 
@@ -164,7 +164,7 @@ Variables written: `tN_gcode_x_offset`, `tN_gcode_y_offset`, `tN_gcode_z_offset`
 | `SET_TOOL_Z_OFFSET VALUE=z` | Record probe Z (Eddy multi-tool) |
 | `LAYER_SET L=n` | Set layer counter |
 | `PRIME_FLAGS_SET` / `PRIME_FLAGS_CLEAR` | Reset first-prime flags |
-| `MHC_CLEAR_ERROR` | Clear error state |
+| `CLEAR_ERROR` | Clear error state |
 | `T0` … `Tn` | Select tool (= `SET T=n`) |
 
 `INIT_SENSOR_STATE` runs on `klippy:ready` — loads saved offsets, reads extruder TMC current, closes feeder.
@@ -228,7 +228,7 @@ Offsets are **G-code offsets** relative to T0. Test-print tool offsets use the *
 
 **Sexball:** configure `[medusahc_calibrate]`, run `CALIBRATE_AND_SAVE_OFFSETS`.
 
-**Eddy-ng (optional):** deploy `Scripts/probe_eddy_ng.py` to `~/eddy-ng`, include `eddy_ng_features.cfg`, run `TOOL_Z_CALIBRATION`.
+**Eddy-ng (optional):** deploy `scripts/probe_eddy_ng.py` to `~/eddy-ng` (`./install.sh --with-eddy`), then configure eddy-ng in your printer.cfg and run `TOOL_Z_CALIBRATION`.
 
 ---
 
@@ -240,7 +240,6 @@ type: git_repo
 path: ~/MedusaHC
 origin: https://github.com/Irbis3D/MedusaHC.git
 primary_branch: main
-system_dependencies: system-dependencies.json
 is_system_service: False
 managed_services: klipper
 ```
@@ -251,18 +250,9 @@ Updates pull Python via symlink; re-run `./install.sh --config-only` when cfg te
 
 ---
 
-## Migrate from legacy MHC macros
-
-1. Remove `[include MHC_variables.cfg]`, `MHC_macros.cfg`, `toolchanger.cfg`
-2. Remove `klippy/extras/pin_watch.py`
-3. Replace with `[include medusahc/medusahc.cfg]`
-4. Move offsets file to `medusahc/saved_vars.cfg`
-
----
-
 ## Example
 
-Minimal `[medusahc]` + two tools: `Example-Config/medusahc.cfg`
+Full 4-tool example: `config/medusahc/medusahc.cfg` (trim `[medusahc_tool N]` sections for fewer tools).
 
 ## License
 

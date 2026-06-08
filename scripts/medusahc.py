@@ -1,7 +1,7 @@
 # klippy/extras/medusahc.py
 #
 # MedusaHC toolchanger orchestrator: sensors, state, validation, Mainsail UI sync.
-# Motion sequences live in Config/medusahc/motion.cfg; Python calls them via gcode.
+# Motion sequences live in config/medusahc/macros.cfg; Python calls them via gcode.
 
 import ast
 import json
@@ -250,14 +250,13 @@ class MedusaHC:
             ("DROP_TOOL", self.cmd_DROP_TOOL),
             ("CLEAN", self.cmd_CLEAN),
             ("ERROR", self.cmd_ERROR),
-            ("MHC_ERROR", self.cmd_ERROR),
             ("TOOL_OFFSET_T", self.cmd_TOOL_OFFSET_T),
             ("LAYER_SET", self.cmd_LAYER_SET),
             ("PRIME_FLAGS_CLEAR", self.cmd_PRIME_FLAGS_CLEAR),
             ("PRIME_FLAGS_SET", self.cmd_PRIME_FLAGS_SET),
             ("SET_TOOL_Z_OFFSET", self.cmd_SET_TOOL_Z_OFFSET),
-            ("MHC_SET_FIRST_PRIME_FLAG", self.cmd_MHC_SET_FIRST_PRIME_FLAG),
-            ("MHC_CLEAR_ERROR", self.cmd_MHC_CLEAR_ERROR),
+            ("SET_FIRST_PRIME_FLAG", self.cmd_SET_FIRST_PRIME_FLAG),
+            ("CLEAR_ERROR", self.cmd_CLEAR_ERROR),
         ]
         for name, fn in cmds:
             self.gcode.register_command(name, fn)
@@ -771,14 +770,14 @@ class MedusaHC:
             % (ct, delta, v, base)
         )
 
-    def cmd_MHC_CLEAR_ERROR(self, gcmd):
+    def cmd_CLEAR_ERROR(self, gcmd):
         self.runtime_global["error_state"] = 0
         if self._machine_state == "error":
             self._set_state("ready")
 
-    def cmd_MHC_SET_FIRST_PRIME_FLAG(self, gcmd):
+    def cmd_SET_FIRST_PRIME_FLAG(self, gcmd):
         t = self._require_t(gcmd, "T")
-        self._validate_t(gcmd, t, "MHC_SET_FIRST_PRIME_FLAG")
+        self._validate_t(gcmd, t, "SET_FIRST_PRIME_FLAG")
         v = int(gcmd.get_int("VALUE", 1))
         self.tool_profiles[t]["first_prime_flag"] = v
 

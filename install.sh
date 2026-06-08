@@ -48,7 +48,7 @@ resolve_repo_root() {
     fi
     local root
     root="$(cd "$(dirname "$script")" && pwd)"
-    if [[ -f "${root}/Scripts/medusahc.py" && -f "${root}/install.sh" ]]; then
+    if [[ -f "${root}/scripts/medusahc.py" && -f "${root}/install.sh" ]]; then
         REPO_ROOT="$root"
         return 0
     fi
@@ -220,14 +220,11 @@ install_config_file() {
 }
 
 install_config_tree() {
-    local src="${REPO_ROOT}/Config/medusahc"
+    local src="${REPO_ROOT}/config/medusahc"
     local dest="${CONFIG_DIR}/medusahc"
 
     [[ -d "$src" ]] || die "Missing ${src}"
     mkdir -p "$CONFIG_DIR"
-
-    install_config_file "${REPO_ROOT}/Config/extruders.cfg" "${CONFIG_DIR}/extruders.cfg"
-    install_config_file "${REPO_ROOT}/Config/servo.cfg" "${CONFIG_DIR}/servo.cfg"
 
     if [[ -d "$dest" && "$FORCE" -eq 0 ]]; then
         log "Config dir exists: ${dest} (merge copy; use --force to backup+replace files)"
@@ -261,7 +258,7 @@ uninstall_config_tree() {
 }
 
 install_eddy() {
-    local src="${REPO_ROOT}/Scripts/probe_eddy_ng.py"
+    local src="${REPO_ROOT}/scripts/probe_eddy_ng.py"
     if [[ ! -d "$EDDY_NG_DIR" ]]; then
         warn "--with-eddy: EDDY_NG_DIR not found (${EDDY_NG_DIR}), skipping"
         return
@@ -270,7 +267,7 @@ install_eddy() {
     log "Install probe_eddy_ng.py -> ${dest}"
     backup_file "$dest"
     cp -a "$src" "$dest"
-    warn "Include Config/eddy_ng_features.cfg in printer.cfg if not already enabled"
+    warn "See README for optional eddy-ng printer.cfg setup"
 }
 
 uninstall_eddy() {
@@ -313,13 +310,6 @@ check_printer_include() {
 
     if grep -qF "$INCLUDE_LINE" "$printer_cfg" 2>/dev/null; then
         log "printer.cfg already includes medusahc bundle"
-        return
-    fi
-
-    if grep -qE 'medusahc_motion|MHC_config|MHC_variables|pin_watch|toolchanger\.cfg' "$printer_cfg" 2>/dev/null; then
-        warn "printer.cfg still references old MedusaHC includes — migrate manually:"
-        warn "  Remove: MHC_variables, MHC_macros, toolchanger, pin_watch, old medusahc paths"
-        warn "  Add:    ${INCLUDE_LINE}"
         return
     fi
 
@@ -422,7 +412,6 @@ install_update_manager() {
         printf 'path: %s\n' "$repo_path"
         printf 'origin: %s\n' "$origin"
         printf 'primary_branch: %s\n' "$branch"
-        printf 'system_dependencies: system-dependencies.json\n'
         printf 'is_system_service: False\n'
         printf 'managed_services: klipper\n'
     } >> "$dest"
@@ -504,7 +493,7 @@ do_install() {
 
     if [[ "$INSTALL_SCRIPTS" -eq 1 ]]; then
         for name in "${MEDUSAHC_SCRIPTS[@]}"; do
-            install_script "${REPO_ROOT}/Scripts/${name}"
+            install_script "${REPO_ROOT}/scripts/${name}"
         done
         [[ "$WITH_EDDY" -eq 1 ]] && install_eddy
     fi
