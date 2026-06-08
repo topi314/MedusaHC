@@ -288,12 +288,12 @@ class MedusaHCCalibrate:
             self._respond("CALIBRATE_TOOL_OFFSETS: no tools to calibrate")
             return
 
-        self._run("SET T=0")
+        medusa.select_tool(0)
         self.cmd_CALIBRATE_MOVE_OVER_PROBE(gcmd)
         self._run("TOOL_LOCATE_SENSOR")
 
         for t in tools:
-            self._run("SET T=%d" % t)
+            medusa.select_tool(t)
             self._run("TOOL_CALIBRATE_TOOL_OFFSET")
 
             res = self.last_result

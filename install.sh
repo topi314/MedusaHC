@@ -12,7 +12,7 @@ PKGLIST=""
 #   ./install.sh                  # scripts + config
 #   ./install.sh --scripts-only   # Python modules only
 #   ./install.sh --config-only    # config bundle only
-#   ./install.sh --force          # overwrite existing config files
+#   ./install.sh --force          # overwrite existing bundle files (never saved_vars.cfg)
 #   ./install.sh --symlink        # symlink scripts instead of copy (dev)
 #   ./install.sh --with-moonraker # symlink scripts + add [update_manager medusahc]
 #   ./install.sh --with-eddy      # also install probe_eddy_ng.py (see README)
@@ -222,23 +222,39 @@ install_config_file() {
 install_config_tree() {
     local src="${REPO_ROOT}/config/medusahc"
     local dest="${CONFIG_DIR}/medusahc"
+    local f name target installed=0 skipped=0
 
     [[ -d "$src" ]] || die "Missing ${src}"
-    mkdir -p "$CONFIG_DIR"
+    mkdir -p "$dest"
 
-    if [[ -d "$dest" && "$FORCE" -eq 0 ]]; then
-        log "Config dir exists: ${dest} (merge copy; use --force to backup+replace files)"
-        cp -a "${src}/." "$dest/"
-    else
-        log "Install config bundle -> ${dest}"
-        mkdir -p "$dest"
-        if [[ "$FORCE" -eq 1 ]]; then
-            for f in "$src"/*; do
-                [[ -f "$f" ]] || continue
-                backup_file "${dest}/$(basename "$f")"
-            done
+    for f in "$src"/*; do
+        [[ -f "$f" ]] || continue
+        name="$(basename "$f")"
+        target="${dest}/${name}"
+
+        if [[ "$name" == "saved_vars.cfg" && -f "$target" ]]; then
+            log "User offsets preserved (skip): ${target}"
+            skipped=$((skipped + 1))
+            continue
         fi
-        cp -a "${src}/." "$dest/"
+
+        if [[ -f "$target" && "$FORCE" -eq 0 ]]; then
+            log "Config exists (skip): ${target}"
+            skipped=$((skipped + 1))
+            continue
+        fi
+
+        if [[ -f "$target" && "$FORCE" -eq 1 ]]; then
+            backup_file "$target"
+        fi
+
+        log "Install ${name} -> ${target}"
+        cp -a "$f" "$target"
+        installed=$((installed + 1))
+    done
+
+    if [[ "$installed" -eq 0 && "$skipped" -gt 0 ]]; then
+        log "No config files overwritten (${skipped} skipped; use --force to replace templates)"
     fi
 }
 
@@ -507,7 +523,7 @@ do_install() {
         install_update_manager
         maybe_restart_moonraker
         log "Moonraker will git-pull this repo and restart Klipper on update"
-        log "Scripts are symlinked; re-run ./install.sh --config-only after config updates"
+        log "Config bundle is install-once; updates do not overwrite your printer_data config"
     fi
 
     maybe_restart_klipper

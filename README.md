@@ -6,7 +6,7 @@ Klipper extras for a multi-hotend changer: Python handles sensors, state, valida
 
 | File | Klipper section | Role |
 |------|-----------------|------|
-| `scripts/medusahc.py` | `[medusahc]` | Orchestrator, `SET`/`DROP`, offsets, Mainsail tool buttons |
+| `scripts/medusahc.py` | `[medusahc]` | Orchestrator, `T0`–`Tn`/`DROP`, offsets, Mainsail tool buttons |
 | `scripts/medusahc_calibrate.py` | `[medusahc_calibrate]` | Sexball kinematic probe calibration (optional) |
 
 Sensor debouncing is built into `medusahc.py` via Klipper `[buttons]`.
@@ -14,15 +14,15 @@ Sensor debouncing is built into `medusahc.py` via Klipper `[buttons]`.
 ## How it works
 
 ```
-medusahc.py          reads switches, validates SET/DROP, exposes printer.medusahc
+medusahc.py          reads switches, validates tool changes/DROP, exposes printer.medusahc
        │
        ▼  gcode macros
-macros.cfg           OPEN/CLOSE, SET_MOVE, DROP_MOVE, POST_PICKUP, CLEAN_MOVE
+macros.cfg           OPEN/CLOSE, _SET_MOVE, _DROP_MOVE, POST_PICKUP, CLEAN_MOVE
 ```
 
 - **Tool count** — from contiguous `[medusahc_tool 0]` … `[medusahc_tool N-1]`; no `max_tool`.
 - **`T0`…`Tn`** — registered in Python as `gcode_macro T{n}` objects (`active` / `color` for Mainsail/Fluidd).
-- **Offsets** — G-code offsets relative to T0; persisted in `medusahc/saved_vars.cfg`.
+- **Offsets** — G-code offsets relative to T0; persisted in `saved_vars.cfg` (alongside `medusahc.cfg`).
 
 Board hardware (`[extruder]`, `[servo]`, pin overrides) is **not** part of the extension bundle — keep that in your own `printer.cfg` includes.
 
@@ -74,6 +74,7 @@ cp -r ~/MedusaHC/config/medusahc ~/printer_data/config/
 ```
 
 `install.sh` flags: `--scripts-only`, `--config-only`, `--force`, `--symlink`, `--with-moonraker`, `--with-eddy`, `--uninstall`.  
+Config install is **non-destructive**: existing files in `medusahc/` are skipped; only missing files are added. `saved_vars.cfg` is never overwritten. Use `--force` to replace template files (still preserves `saved_vars.cfg`).  
 Overrides: `KLIPPER_DIR`, `CONFIG_DIR`, `MOONRAKER_CONF`, `MEDUSAHC_REPO_DIR`, `MEDUSAHC_REPO_URL`, `MEDUSAHC_REPO_BRANCH`.
 
 ---
@@ -127,10 +128,10 @@ Macros called by Python — safe to edit without restarting logic:
 
 | Macro | Used by |
 |-------|---------|
-| `OPEN_START`, `OPEN_MOVE` | `OPEN` |
-| `CLOSE_MOVE` | `CLOSE` |
-| `SET_MOVE`, `POST_PICKUP` | `SET` |
-| `DROP_MOVE` | `DROP` |
+| `_OPEN_START`, `_OPEN_MOVE` | `OPEN` |
+| `CLOSEMOVE` | `CLOSE` |
+| `_SET_MOVE`, `POST_PICKUP` | `T0`…`Tn` |
+| `_DROP_MOVE` | `DROP` |
 | `CLEAN_MOVE` | `CLEAN` |
 
 ### `[medusahc_calibrate]`
@@ -143,7 +144,7 @@ In `medusahc.cfg`:
 
 ```ini
 [save_variables]
-filename: medusahc/saved_vars.cfg
+filename: saved_vars.cfg
 ```
 
 Variables written: `tN_gcode_x_offset`, `tN_gcode_y_offset`, `tN_gcode_z_offset`.
@@ -156,7 +157,6 @@ Variables written: `tN_gcode_x_offset`, `tN_gcode_y_offset`, `tN_gcode_z_offset`
 
 | Command | Description |
 |---------|-------------|
-| `SET T=n` | Pick up tool *n* |
 | `DROP` | Drop current tool |
 | `DROP_CLOSE` | Drop and close feeder |
 | `DROP_TOOL` | Drop without close sequence |
@@ -167,7 +167,7 @@ Variables written: `tN_gcode_x_offset`, `tN_gcode_y_offset`, `tN_gcode_z_offset`
 | `LAYER_SET L=n` | Set layer counter |
 | `PRIME_FLAGS_SET` / `PRIME_FLAGS_CLEAR` | Reset first-prime flags |
 | `CLEAR_ERROR` | Clear error state |
-| `T0` … `Tn` | Select tool (= `SET T=n`) |
+| `T0` … `Tn` | Pick up tool *n* |
 
 `INIT_SENSOR_STATE` runs on `klippy:ready` — loads saved offsets, reads extruder TMC current, closes feeder.
 
@@ -193,7 +193,7 @@ Moonraker object: `medusahc`. Jinja: `{% set m = printer.medusahc %}`.
 |-----|------|---------|
 | `state` | str | `uninitialized`, `ready`, `changing`, `error` |
 | `current_tool` | int | `-2` fault, `-1` empty, `0…N-1` on head |
-| `target_tool` | int | Last `SET` target |
+| `target_tool` | int | Last `T{n}` selection target |
 | `tool_count` | int | Number of tools |
 | `head_loaded` | bool | `pin_e` triggered |
 | `feeder_open` | bool | Latch open |
@@ -249,7 +249,7 @@ managed_services: klipper
 
 Or: `./install.sh --with-moonraker`.
 
-Updates pull Python via symlink; re-run `./install.sh --config-only` when cfg templates change.
+Updates pull Python via symlink and do not touch your `printer_data/config/medusahc/` files. Merge template changes from the repo manually when needed.
 
 ---
 

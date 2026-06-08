@@ -23,7 +23,7 @@ class ToolButtonMacro:
         return self.variables
 
     def cmd(self, gcmd):
-        self.medusa._run("SET T=%d" % self.tool_index)
+        self.medusa.select_tool(self.tool_index, gcmd)
 
     def cmd_SET_GCODE_VARIABLE(self, gcmd):
         variable = gcmd.get("VARIABLE")
@@ -246,7 +246,6 @@ class MedusaHC:
             ("INIT_SENSOR_STATE", self.cmd_INIT_SENSOR_STATE),
             ("OPEN", self.cmd_OPEN),
             ("CLOSE", self.cmd_CLOSE),
-            ("SET", self.cmd_SET),
             ("DROP", self.cmd_DROP),
             ("DROP_CLOSE", self.cmd_DROP_CLOSE),
             ("DROP_TOOL", self.cmd_DROP_TOOL),
@@ -463,7 +462,7 @@ class MedusaHC:
     def _home_request(self):
         homed = str(self._status("toolhead").get("homed_axes", ""))
         if "x" not in homed or "y" not in homed:
-            self._respond("SET: homing (G28)")
+            self._respond("homing (G28)")
             self._run("G28")
 
     def _set_offset(self, t, x, y, z):
@@ -472,12 +471,12 @@ class MedusaHC:
     def cmd_OPEN(self, gcmd):
         if int(self.runtime_global.get("feeder_open", 0)) == 1:
             return
-        self._run("OPEN_START")
-        self._run("OPEN_MOVE")
+        self._run("_OPEN_START")
+        self._run("_OPEN_MOVE")
         self.runtime_global["feeder_open"] = 1
 
     def cmd_CLOSE(self, gcmd):
-        self._run("CLOSE_MOVE")
+        self._run("CLOSEMOVE")
         self.runtime_global["feeder_open"] = 0
 
     def _ensure_open(self):
@@ -544,7 +543,7 @@ class MedusaHC:
 
     def _do_pickup(self, t):
         self._ensure_open()
-        self._run("SET_MOVE T=%d" % t)
+        self._run("_SET_MOVE T=%d" % t)
         self._run("M106 S255")
         self._run("G4 P1000")
         if not self._verify_pickup(t):
@@ -557,7 +556,7 @@ class MedusaHC:
     def _do_drop(self):
         ct = self.current_tool
         self._ensure_open()
-        self._run("DROP_MOVE T=%d" % ct)
+        self._run("_DROP_MOVE T=%d" % ct)
         self._run("G4 P900")
         return self._verify_drop()
 
@@ -626,9 +625,12 @@ class MedusaHC:
 
         self._set_state("ready")
 
-    def cmd_SET(self, gcmd):
-        t = self._require_t(gcmd, "T")
-        self._validate_t(gcmd, t, "SET")
+    def select_tool(self, t, gcmd=None):
+        t = int(t)
+        if gcmd is None:
+            gcmd = self.gcode.create_gcode_command(
+                "T%d" % t, "T%d" % t, {"T": str(t)})
+        self._validate_t(gcmd, t, "T%d" % t)
 
         self._set_state("changing")
         self.runtime_global["error_state"] = 0
@@ -652,7 +654,7 @@ class MedusaHC:
             self.cmd_ERROR(gcmd)
             return
         if ct == t:
-            self._respond("SET: already T%d" % t)
+            self._respond("T%d: already selected" % t)
             self._set_state("ready")
             return
 
