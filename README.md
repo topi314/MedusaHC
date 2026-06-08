@@ -17,7 +17,7 @@ Sensor debouncing is built into `medusahc.py` via Klipper `[buttons]`.
 medusahc.py          reads switches, validates tool changes/DROP, exposes printer.medusahc
        │
        ▼  gcode macros
-macros.cfg           OPEN/CLOSE, _SET_MOVE, _DROP_MOVE, POST_PICKUP, CLEAN_MOVE
+macros.cfg           internal `_…` motion macros; public `OPEN`/`CLOSE`/`T0`…`Tn`/`DROP`/`CLEAN`
 ```
 
 - **Tool count** — from contiguous `[medusahc_tool 0]` … `[medusahc_tool N-1]`; no `max_tool`.
@@ -101,7 +101,7 @@ config/medusahc/
 | `fast_accel`, `fast_speed` | Tool-change motion caps |
 | `servo` | Feeder latch servo name (must match `[servo]` section) |
 | `y_prime`, `y_brush`, `x_prime_shift` | Prime and brush positions |
-| `x_clean_move` | Brush wipe stroke X amplitude in `CLEAN_MOVE` (mm) |
+| `x_clean_move` | Brush wipe stroke X amplitude in `_CLEAN_MOVE` (mm) |
 | `e_open`, `e_close` | Feeder latch extruder distances (mm) |
 | `e_cur_high_mult` | TMC current multiplier during `OPEN` |
 | `sync_mainsail_tools` | Update `T{n}` `active` variable |
@@ -129,10 +129,12 @@ Macros called by Python — safe to edit without restarting logic:
 | Macro | Used by |
 |-------|---------|
 | `_OPEN_START`, `_OPEN_MOVE` | `OPEN` |
-| `CLOSEMOVE` | `CLOSE` |
-| `_SET_MOVE`, `POST_PICKUP` | `T0`…`Tn` |
+| `_CLOSE_MOVE` | `CLOSE` |
+| `_SET_MOVE`, `_POST_PICKUP` | `T0`…`Tn` |
 | `_DROP_MOVE` | `DROP` |
-| `CLEAN_MOVE` | `CLEAN` |
+| `_CLEAN_MOVE` | `CLEAN` |
+
+`_POST_PICKUP` calls `_SET_FIRST_PRIME_FLAG` (internal). Macros call `TOOL_OFFSET_T`, `OPEN`, and `CLOSE` (Python commands).
 
 ### `[medusahc_calibrate]`
 
@@ -167,6 +169,7 @@ Variables written: `tN_gcode_x_offset`, `tN_gcode_y_offset`, `tN_gcode_z_offset`
 | `LAYER_SET L=n` | Set layer counter |
 | `PRIME_FLAGS_SET` / `PRIME_FLAGS_CLEAR` | Reset first-prime flags |
 | `CLEAR_ERROR` | Clear error state |
+| `ERROR` | Pause print and park on tool-change failure |
 | `T0` … `Tn` | Pick up tool *n* |
 
 `INIT_SENSOR_STATE` runs on `klippy:ready` — loads saved offsets, reads extruder TMC current, closes feeder.

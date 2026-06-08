@@ -256,7 +256,7 @@ class MedusaHC:
             ("PRIME_FLAGS_CLEAR", self.cmd_PRIME_FLAGS_CLEAR),
             ("PRIME_FLAGS_SET", self.cmd_PRIME_FLAGS_SET),
             ("SET_TOOL_Z_OFFSET", self.cmd_SET_TOOL_Z_OFFSET),
-            ("SET_FIRST_PRIME_FLAG", self.cmd_SET_FIRST_PRIME_FLAG),
+            ("_SET_FIRST_PRIME_FLAG", self.cmd_SET_FIRST_PRIME_FLAG),
             ("CLEAR_ERROR", self.cmd_CLEAR_ERROR),
         ]
         for name, fn in cmds:
@@ -476,7 +476,7 @@ class MedusaHC:
         self.runtime_global["feeder_open"] = 1
 
     def cmd_CLOSE(self, gcmd):
-        self._run("CLOSEMOVE")
+        self._run("_CLOSE_MOVE")
         self.runtime_global["feeder_open"] = 0
 
     def _ensure_open(self):
@@ -548,7 +548,7 @@ class MedusaHC:
         self._run("G4 P1000")
         if not self._verify_pickup(t):
             return False
-        self._run("POST_PICKUP T=%d" % t)
+        self._run("_POST_PICKUP T=%d" % t)
         self.runtime_global["feeder_open"] = 0
         self._run("M106 S0")
         return True
@@ -703,7 +703,7 @@ class MedusaHC:
             self.cmd_ERROR(gcmd)
             return
         self._home_request()
-        self._run("CLEAN_MOVE T=%d" % ct)
+        self._run("_CLEAN_MOVE T=%d" % ct)
 
     def cmd_ERROR(self, gcmd):
         y_safe = float(self.common_cfg["y_safe"])
@@ -782,7 +782,7 @@ class MedusaHC:
 
     def cmd_SET_FIRST_PRIME_FLAG(self, gcmd):
         t = self._require_t(gcmd, "T")
-        self._validate_t(gcmd, t, "SET_FIRST_PRIME_FLAG")
+        self._validate_t(gcmd, t, "_SET_FIRST_PRIME_FLAG")
         v = int(gcmd.get_int("VALUE", 1))
         self.tool_profiles[t]["first_prime_flag"] = v
 
