@@ -58,6 +58,7 @@ class MedusaHC:
         self.color_released = str(config.get("color_released", "D32F2F")).strip()
         self.color_active = str(config.get("color_active", "1976D2")).strip()
         self.tool_button_color = str(config.get("tool_button_color", "00FF00")).strip()
+        self.servo_name = str(config.get("servo", "my_servo")).strip()
         self._last_ui_active = None
         self._last_ui_lamp = {}
         self.tool_buttons = []
@@ -71,6 +72,7 @@ class MedusaHC:
             "y_prime": config.getfloat("y_prime", -52.0),
             "y_brush": config.getfloat("y_brush", -38.0),
             "x_prime_shift": config.getfloat("x_prime_shift", 12.0),
+            "x_clean_move": config.getfloat("x_clean_move", 10.0),
             "e_open": config.getfloat("e_open", -4.0),
             "e_close": config.getfloat("e_close", 0.5),
             "e_cur_high_mult": config.getfloat("e_cur_high_mult", 1.6),
@@ -317,6 +319,7 @@ class MedusaHC:
             "t0_probe_z": float(self.runtime_global["t0_probe_z"]),
             "e_cur": float(self.runtime_global["e_cur"]),
             "e_cur_high": float(self.runtime_global["e_cur_high"]),
+            "servo": self.servo_name,
         }
         for key, val in self.common_cfg.items():
             s[key] = float(val)

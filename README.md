@@ -98,7 +98,9 @@ config/medusahc/
 | `verbose` | Log pin transitions |
 | `y_safe`, `y_latch`, `x_shift` | Pickup/drop geometry |
 | `fast_accel`, `fast_speed` | Tool-change motion caps |
+| `servo` | Feeder latch servo name (must match `[servo]` section) |
 | `y_prime`, `y_brush`, `x_prime_shift` | Prime and brush positions |
+| `x_clean_move` | Brush wipe stroke X amplitude in `CLEAN_MOVE` (mm) |
 | `e_open`, `e_close` | Feeder latch extruder distances (mm) |
 | `e_cur_high_mult` | TMC current multiplier during `OPEN` |
 | `sync_mainsail_tools` | Update `T{n}` `active` variable |
@@ -199,7 +201,8 @@ Moonraker object: `medusahc`. Jinja: `{% set m = printer.medusahc %}`.
 | `layer` | int | From `LAYER_SET` |
 | `eddy_z`, `t0_probe_z` | float | Eddy calibration helpers |
 | `e_cur`, `e_cur_high` | float | Extruder TMC currents |
-| `y_safe`, `y_latch`, `x_shift`, … | float | Motion defaults from `[medusahc]` |
+| `servo` | str | Feeder latch servo name |
+| `y_safe`, `y_latch`, `x_shift`, `x_clean_move`, … | float | Motion defaults from `[medusahc]` |
 
 ### Per tool (`N` = 0 … tool_count−1)
 
