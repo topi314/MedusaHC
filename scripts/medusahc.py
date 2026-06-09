@@ -264,7 +264,6 @@ class MedusaHC:
             ("DROP", self.cmd_DROP),
             ("DROP_CLOSE", self.cmd_DROP_CLOSE),
             ("DROP_TOOL", self.cmd_DROP_TOOL),
-            ("CLEAN", self.cmd_CLEAN),
             ("ERROR", self.cmd_ERROR),
             ("TOOL_OFFSET_T", self.cmd_TOOL_OFFSET_T),
             ("LAYER_SET", self.cmd_LAYER_SET),
@@ -282,6 +281,7 @@ class MedusaHC:
         ui_macros = [
             ("OPEN", self.cmd_OPEN, "Open feeder latch"),
             ("CLOSE", self.cmd_CLOSE, "Close feeder latch"),
+            ("CLEAN", self.cmd_CLEAN, "Clean active tool nozzle on brush"),
         ]
         for name, handler, desc in ui_macros:
             btn = GcodeMacroButton(name, handler)
