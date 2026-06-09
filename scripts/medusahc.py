@@ -92,6 +92,7 @@ class MedusaHC:
             "e_close": config.getfloat("e_close", 0.5),
             "e_cur_high_mult": config.getfloat("e_cur_high_mult", 1.6),
         }
+        self.e_run_current_override = config.getfloat("e_run_current", 0.0)
 
         self.tool_count = self._derive_tool_count(config)
         self.tool_profiles = {}
@@ -493,14 +494,77 @@ class MedusaHC:
     def _set_offset(self, t, x, y, z):
         self.offsets[t] = {"x": float(x), "y": float(y), "z": float(z)}
 
+    def _load_extruder_run_current(self):
+        e_cur = 0.0
+        source = "unknown"
+
+        if self.e_run_current_override > 0.0:
+            e_cur = float(self.e_run_current_override)
+            source = "e_run_current"
+        else:
+            for name in (
+                "tmc2209 extruder",
+                "tmc2130 extruder",
+                "tmc5160 extruder",
+                "tmc2240 extruder",
+                "tmc2660 extruder",
+            ):
+                try:
+                    tmc = self.printer.lookup_object(name)
+                    e_cur = float(getattr(tmc, "run_current", 0.0))
+                    if e_cur > 0.0:
+                        source = name
+                        break
+                except Exception:
+                    pass
+
+            if e_cur <= 0.0:
+                cfg = self.printer.lookup_object("configfile", None)
+                settings = getattr(cfg, "settings", {}) if cfg is not None else {}
+                for name in (
+                    "tmc2209 extruder",
+                    "tmc2130 extruder",
+                    "tmc5160 extruder",
+                    "tmc2240 extruder",
+                    "tmc2660 extruder",
+                ):
+                    tmc_e = settings.get(name, {})
+                    if isinstance(tmc_e, dict):
+                        e_cur = float(tmc_e.get("run_current", 0.0))
+                        if e_cur > 0.0:
+                            source = name + " (config)"
+                            break
+
+            if e_cur <= 0.0:
+                e_cur = 0.5
+                source = "default"
+                self._respond(
+                    "medusahc: WARN extruder run_current not found; "
+                    "using %.2fA (set e_run_current in [medusahc] or add [tmc* extruder])"
+                    % e_cur
+                )
+
+        e_mult = float(self.common_cfg["e_cur_high_mult"])
+        self.runtime_global["e_cur"] = e_cur
+        self.runtime_global["e_cur_high"] = e_cur * e_mult
+        if self.verbose:
+            self._respond(
+                "medusahc: e_cur=%.3f e_cur_high=%.3f (%s)"
+                % (e_cur, e_cur * e_mult, source)
+            )
+
     def cmd_OPEN(self, gcmd):
         if int(self.runtime_global.get("feeder_open", 0)) == 1:
             return
+        if float(self.runtime_global.get("e_cur", 0.0)) <= 0.0:
+            self._load_extruder_run_current()
         self._run("_OPEN_START")
         self._run("_OPEN_MOVE")
         self.runtime_global["feeder_open"] = 1
 
     def cmd_CLOSE(self, gcmd):
+        if float(self.runtime_global.get("e_cur", 0.0)) <= 0.0:
+            self._load_extruder_run_current()
         self._run("_CLOSE_MOVE")
         self.runtime_global["feeder_open"] = 0
 
@@ -621,20 +685,12 @@ class MedusaHC:
     def cmd_INIT_SENSOR_STATE(self, gcmd):
         self._respond("INIT_SENSOR_STATE")
 
-        cfg = self.printer.lookup_object("configfile", None)
-        settings = getattr(cfg, "settings", {}) if cfg is not None else {}
-        tmc_e = settings.get("tmc2209 extruder", {})
-        e_cur = float(tmc_e.get("run_current", 0.0))
-        e_mult = float(self.common_cfg["e_cur_high_mult"])
-        e_hi = e_cur * e_mult
-
         sv = self._status("save_variables").get("variables", {})
         if not isinstance(sv, dict):
             sv = {}
 
         self.cmd_CLOSE(gcmd)
-        self.runtime_global["e_cur"] = e_cur
-        self.runtime_global["e_cur_high"] = e_hi
+        self._load_extruder_run_current()
         self.runtime_global["feeder_open"] = 0
 
         for t in range(self.tool_count):

@@ -104,7 +104,8 @@ config/medusahc/
 | `y_prime`, `y_brush`, `x_prime_shift` | Prime and brush positions |
 | `x_clean_move` | Brush wipe stroke X amplitude in `_CLEAN_MOVE` (mm) |
 | `e_open`, `e_close` | Feeder latch extruder distances (mm) |
-| `e_cur_high_mult` | TMC current multiplier during `OPEN` |
+| `e_run_current` | Optional extruder `run_current` override (A) if auto-detect fails |
+| `e_cur_high_mult` | TMC current multiplier during `OPEN` / `CLOSE` |
 | `sync_mainsail_tools` | Update `T{n}` `active` variable |
 | `sync_mainsail_sensors` | Update `T{n}` `color` dock lamp |
 | `color_active`, `color_pressed`, `color_released` | Lamp colours (hex, no `#`) |
