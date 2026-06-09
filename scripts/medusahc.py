@@ -8,6 +8,21 @@ import json
 import logging
 
 
+class GcodeMacroButton:
+    """Expose a Python command as gcode_macro object for Mainsail/Fluidd UI."""
+
+    def __init__(self, alias, handler):
+        self.alias = str(alias)
+        self.handler = handler
+        self.variables = {}
+
+    def get_status(self, eventtime):
+        return self.variables
+
+    def cmd(self, gcmd):
+        self.handler(gcmd)
+
+
 class ToolButtonMacro:
     """Mainsail/Fluidd tool buttons: gcode_macro T{n} with active/color variables."""
 
@@ -105,6 +120,7 @@ class MedusaHC:
 
         self._setup_switch_watch(config)
         self._register_commands()
+        self._register_ui_macros()
         self._register_tool_buttons()
         self.printer.register_event_handler("klippy:ready", self._handle_ready)
 
@@ -244,8 +260,6 @@ class MedusaHC:
     def _register_commands(self):
         cmds = [
             ("INIT_SENSOR_STATE", self.cmd_INIT_SENSOR_STATE),
-            ("OPEN", self.cmd_OPEN),
-            ("CLOSE", self.cmd_CLOSE),
             ("DROP", self.cmd_DROP),
             ("DROP_CLOSE", self.cmd_DROP_CLOSE),
             ("DROP_TOOL", self.cmd_DROP_TOOL),
@@ -261,6 +275,17 @@ class MedusaHC:
         ]
         for name, fn in cmds:
             self.gcode.register_command(name, fn)
+
+    def _register_ui_macros(self):
+        """Register OPEN/CLOSE as gcode_macro objects (visible in Mainsail/Fluidd)."""
+        ui_macros = [
+            ("OPEN", self.cmd_OPEN, "Open feeder latch"),
+            ("CLOSE", self.cmd_CLOSE, "Close feeder latch"),
+        ]
+        for name, handler, desc in ui_macros:
+            btn = GcodeMacroButton(name, handler)
+            self.printer.add_object("gcode_macro %s" % name, btn)
+            self.gcode.register_command(name, btn.cmd, desc=desc)
 
     def _register_tool_buttons(self):
         self.tool_buttons = []

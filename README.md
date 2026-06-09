@@ -22,6 +22,7 @@ macros.cfg           internal `_…` motion macros; public `OPEN`/`CLOSE`/`T0`�
 
 - **Tool count** — from contiguous `[medusahc_tool 0]` … `[medusahc_tool N-1]`; no `max_tool`.
 - **`T0`…`Tn`** — registered in Python as `gcode_macro T{n}` objects (`active` / `color` for Mainsail/Fluidd).
+- **`OPEN` / `CLOSE`** — same pattern (Python commands exposed as `gcode_macro` objects for the macro UI).
 - **Offsets** — G-code offsets relative to T0; persisted in `saved_vars.cfg` (alongside `medusahc.cfg`).
 
 Board hardware (`[extruder]`, `[servo]`, pin overrides) is **not** part of the extension bundle — keep that in your own `printer.cfg` includes.
