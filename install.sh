@@ -9,12 +9,12 @@ PKGLIST=""
 #   wget -qO- https://raw.githubusercontent.com/topi314/MedusaHC/main/install.sh | bash -s -- --with-moonraker
 #
 # Install:
-#   ./install.sh                  # scripts + config
+#   ./install.sh                  # scripts (symlinked) + config
 #   ./install.sh --scripts-only   # Python modules only
 #   ./install.sh --config-only    # config bundle only
 #   ./install.sh --force          # overwrite existing bundle files (never saved_vars.cfg)
-#   ./install.sh --symlink        # symlink scripts instead of copy (dev)
-#   ./install.sh --with-moonraker # symlink scripts + add [update_manager medusahc]
+#   ./install.sh --copy           # copy scripts instead of symlink
+#   ./install.sh --with-moonraker # add [update_manager medusahc]
 #   ./install.sh --with-eddy      # also install probe_eddy_ng.py (see README)
 #
 # Uninstall:
@@ -92,7 +92,7 @@ INSTALL_SCRIPTS=1
 INSTALL_CONFIG=1
 UNINSTALL=0
 FORCE=0
-SYMLINK=0
+SYMLINK=1
 WITH_MOONRAKER=0
 WITH_EDDY=0
 RESTART=1
@@ -119,6 +119,7 @@ while [[ $# -gt 0 ]]; do
         --scripts-only) INSTALL_CONFIG=0 ;;
         --config-only) INSTALL_SCRIPTS=0 ;;
         --force) FORCE=1 ;;
+        --copy) SYMLINK=0 ;;
         --symlink) SYMLINK=1 ;;
         --with-moonraker) WITH_MOONRAKER=1 ;;
         --with-eddy) WITH_EDDY=1 ;;

@@ -74,7 +74,8 @@ cp -r ~/MedusaHC/config/medusahc ~/printer_data/config/
 [include medusahc/medusahc.cfg]
 ```
 
-`install.sh` flags: `--scripts-only`, `--config-only`, `--force`, `--symlink`, `--with-moonraker`, `--with-eddy`, `--uninstall`.  
+`install.sh` symlinks Python modules into `klippy/extras/` by default (use `--copy` to install copies instead).  
+Flags: `--scripts-only`, `--config-only`, `--force`, `--copy`, `--with-moonraker`, `--with-eddy`, `--uninstall`.  
 Config install is **non-destructive**: existing files in `medusahc/` are skipped; only missing files are added. `saved_vars.cfg` is never overwritten. Use `--force` to replace template files (still preserves `saved_vars.cfg`).  
 Overrides: `KLIPPER_DIR`, `CONFIG_DIR`, `MOONRAKER_CONF`, `MEDUSAHC_REPO_DIR`, `MEDUSAHC_REPO_URL`, `MEDUSAHC_REPO_BRANCH`.
 
