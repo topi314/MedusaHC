@@ -5,8 +5,8 @@
 PKGLIST=""
 #
 # One-line install (clones repo, then runs installer):
-#   curl -fsSL https://raw.githubusercontent.com/Irbis3D/MedusaHC/main/install.sh | bash -s -- --with-moonraker
-#   wget -qO- https://raw.githubusercontent.com/Irbis3D/MedusaHC/main/install.sh | bash -s -- --with-moonraker
+#   curl -fsSL https://raw.githubusercontent.com/topi314/MedusaHC/main/install.sh | bash -s -- --with-moonraker
+#   wget -qO- https://raw.githubusercontent.com/topi314/MedusaHC/main/install.sh | bash -s -- --with-moonraker
 #
 # Install:
 #   ./install.sh                  # scripts + config
@@ -32,13 +32,13 @@ PKGLIST=""
 #   MOONRAKER_CONF=~/printer_data/config/moonraker.conf
 #   EDDY_NG_DIR=~/eddy-ng
 #   MEDUSAHC_REPO_DIR=~/MedusaHC
-#   MEDUSAHC_REPO_URL=https://github.com/Irbis3D/MedusaHC.git
+#   MEDUSAHC_REPO_URL=https://github.com/topi314/MedusaHC.git
 #   MEDUSAHC_REPO_BRANCH=main
 
 set -euo pipefail
 
 MEDUSAHC_REPO_DIR="${MEDUSAHC_REPO_DIR:-${HOME}/MedusaHC}"
-MEDUSAHC_REPO_URL="${MEDUSAHC_REPO_URL:-https://github.com/Irbis3D/MedusaHC.git}"
+MEDUSAHC_REPO_URL="${MEDUSAHC_REPO_URL:-https://github.com/topi314/MedusaHC.git}"
 MEDUSAHC_REPO_BRANCH="${MEDUSAHC_REPO_BRANCH:-main}"
 
 resolve_repo_root() {
@@ -104,7 +104,7 @@ ASSUME_YES=0
 MEDUSAHC_SCRIPTS=(medusahc.py medusahc_calibrate.py)
 INCLUDE_LINE="[include medusahc/medusahc.cfg]"
 UPDATE_MANAGER_SECTION="[update_manager medusahc]"
-DEFAULT_MOONRAKER_ORIGIN="https://github.com/Irbis3D/MedusaHC.git"
+DEFAULT_MOONRAKER_ORIGIN="https://github.com/topi314/MedusaHC.git"
 DEFAULT_MOONRAKER_BRANCH="main"
 
 usage() {

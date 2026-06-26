@@ -34,23 +34,23 @@ Board hardware (`[extruder]`, `[servo]`, pin overrides) is **not** part of the e
 One line (clones to `~/MedusaHC`, symlinks modules, installs config, registers Moonraker):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Irbis3D/MedusaHC/main/install.sh | bash -s -- --with-moonraker
+curl -fsSL https://raw.githubusercontent.com/topi314/MedusaHC/main/install.sh | bash -s -- --with-moonraker
 ```
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/Irbis3D/MedusaHC/main/install.sh | bash -s -- --with-moonraker
+wget -qO- https://raw.githubusercontent.com/topi314/MedusaHC/main/install.sh | bash -s -- --with-moonraker
 ```
 
 Pass any `install.sh` flags after `bash -s --`. Override clone location or branch:
 
 ```bash
-MEDUSAHC_REPO_BRANCH=main curl -fsSL https://raw.githubusercontent.com/Irbis3D/MedusaHC/main/install.sh | bash -s -- --force
+MEDUSAHC_REPO_BRANCH=main curl -fsSL https://raw.githubusercontent.com/topi314/MedusaHC/main/install.sh | bash -s -- --force
 ```
 
 From a local clone:
 
 ```bash
-git clone https://github.com/Irbis3D/MedusaHC.git ~/MedusaHC
+git clone https://github.com/topi314/MedusaHC.git ~/MedusaHC
 cd ~/MedusaHC
 ./install.sh --with-moonraker
 ```
@@ -246,7 +246,7 @@ Offsets are **G-code offsets** relative to T0. Test-print tool offsets use the *
 [update_manager medusahc]
 type: git_repo
 path: ~/MedusaHC
-origin: https://github.com/Irbis3D/MedusaHC.git
+origin: https://github.com/topi314/MedusaHC.git
 primary_branch: main
 is_system_service: False
 managed_services: klipper
