@@ -634,13 +634,15 @@ class MedusaHC:
         self._ensure_open()
         self._run("_SET_MOVE T=%d" % t)
         self._run("M106 S255")
-        self._run("G4 P1000")
-        if not self._verify_pickup(t):
-            return False
-        self._run("_POST_PICKUP T=%d" % t)
-        self.runtime_global["feeder_open"] = 0
-        self._run("M106 S0")
-        return True
+        try:
+            self._run("G4 P1000")
+            if not self._verify_pickup(t):
+                return False
+            self._run("_POST_PICKUP T=%d" % t)
+            self.runtime_global["feeder_open"] = 0
+            return True
+        finally:
+            self._run("M106 S0")
 
     def _do_drop(self):
         ct = self.current_tool
