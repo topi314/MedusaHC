@@ -299,8 +299,12 @@ class MedusaHCCalibrate:
 
     def cmd_CALIBRATE_MOVE_OVER_PROBE(self, gcmd):
         self._run("BED_MESH_CLEAR")
+        if self.sensor_location:
+            x, y = self.sensor_location[0], self.sensor_location[1]
+        else:
+            x, y = self.probe_x, self.probe_y
         self._run("G0 Z%.6f F%.6f" % (self.probe_z, self.probe_f))
-        self._run("G0 X%.6f Y%.6f F%.6f" % (self.probe_x, self.probe_y, self.probe_f))
+        self._run("G0 X%.6f Y%.6f F%.6f" % (x, y, self.probe_f))
 
     def cmd_CALIBRATE_TOOL_OFFSETS(self, gcmd):
         medusa = self._medusa(gcmd)
@@ -319,6 +323,7 @@ class MedusaHCCalibrate:
 
         for t in tools:
             medusa.select_tool(t)
+            self.cmd_CALIBRATE_MOVE_OVER_PROBE(gcmd)
             self._run("TOOL_CALIBRATE_TOOL_OFFSET")
 
             res = self.last_result
