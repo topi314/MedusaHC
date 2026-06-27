@@ -853,7 +853,6 @@ class MedusaHC:
         self._run("_CLEAN_MOVE T=%d" % ct)
 
     def cmd_ERROR(self, gcmd):
-        y_safe = float(self.common_cfg["y_safe"])
         target_tool = int(self.runtime_global.get("target_tool", -1))
         state = self._print_state()
         self.runtime_global["error_state"] = 1
@@ -861,9 +860,7 @@ class MedusaHC:
 
         if state in ("printing", "paused"):
             self._respond("ERROR")
-            self._run("G90")
-            self._run("G1 Y%.6f F6000" % (y_safe + 50.0))
-            self._run("PAUSE")
+            self._run("_MEDUSAHC_ERROR_PAUSE")
             self._respond("Error - Target tool - %d" % target_tool)
         else:
             self._respond("ERROR set (no print, no pause)")

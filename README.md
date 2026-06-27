@@ -137,8 +137,11 @@ Macros called by Python — safe to edit without restarting logic:
 | `_SET_MOVE`, `_POST_PICKUP` | `T0`…`Tn` |
 | `_DROP_MOVE` | `DROP` |
 | `_CLEAN_MOVE` | `CLEAN` |
+| `_MEDUSAHC_ERROR_PAUSE` | `ERROR` |
 
 `_POST_PICKUP` calls `_SET_FIRST_PRIME_FLAG` (internal). Macros call `TOOL_OFFSET_T`, `OPEN`, and `CLOSE` (Python commands).
+
+`ERROR` calls `_MEDUSAHC_ERROR_PAUSE`, which lifts Z, moves to `y_safe`, then `_PAUSE` (Klipper’s built-in pause — **not** your `PAUSE` macro). Your job `PAUSE` macro should use `rename_existing: _PAUSE` (Mainsail/KAMP default). On cancel after a tool-change error, guard `PRINT_END` with `printer.medusahc.error` so it does not run `DROP_TOOL` / `PARK` / `RESTORE_GCODE_STATE`.
 
 ### `[medusahc_calibrate]`
 
@@ -165,7 +168,7 @@ User-facing macros (shown in Mainsail/Fluidd): `OPEN`, `CLOSE`, `CLEAN`, `CALIBR
 | `LAYER_SET L=n` | Set layer counter |
 | `PRIME_FLAGS_SET` / `PRIME_FLAGS_CLEAR` | Reset first-prime flags |
 | `CLEAR_ERROR` | Clear error state |
-| `ERROR` | Pause print and park on tool-change failure |
+| `ERROR` | Pause print at dock (`y_safe`) on tool-change failure |
 | `T0` … `Tn` | Pick up tool *n* |
 
 `INIT_SENSOR_STATE` runs on `klippy:ready` — logs `[medusahc_tool N]` offsets, reads extruder TMC current, closes feeder.
