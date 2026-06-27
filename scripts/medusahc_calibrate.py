@@ -19,6 +19,21 @@ position can be negative).
 """
 
 
+class GcodeMacroButton:
+    """Expose a Python command as gcode_macro object for Mainsail/Fluidd UI."""
+
+    def __init__(self, alias, handler):
+        self.alias = str(alias)
+        self.handler = handler
+        self.variables = {}
+
+    def get_status(self, eventtime):
+        return self.variables
+
+    def cmd(self, gcmd):
+        self.handler(gcmd)
+
+
 class MedusaHCCalibrate:
     def __init__(self, config):
         self.printer = config.get_printer()
@@ -71,22 +86,32 @@ class MedusaHCCalibrate:
         self.gcode.register_command('TOOL_CALIBRATE_QUERY_PROBE', self.cmd_TOOL_CALIBRATE_QUERY_PROBE,
                                     desc=self.cmd_TOOL_CALIBRATE_QUERY_PROBE_help)
 
-        # High-level calibration commands
-        self.gcode.register_command(
-            "CALIBRATE_MOVE_OVER_PROBE", self.cmd_CALIBRATE_MOVE_OVER_PROBE,
-            desc="Move to the Sexball calibration station")
-        self.gcode.register_command(
-            "CALIBRATE_TOOL_OFFSETS", self.cmd_CALIBRATE_TOOL_OFFSETS,
-            desc="Calibrate tool XY/Z offsets relative to T0 (TOOLS SAVE DROP)")
-        self.gcode.register_command(
-            "CALIBRATE_AND_SAVE_OFFSETS", self.cmd_CALIBRATE_AND_SAVE_OFFSETS,
-            desc="Run full offset calibration, save, and park (SAVE DROP TOOLS)")
-        self.gcode.register_command(
-            "CALIBRATE_NOZZLE_PROBE_OFFSET", self.cmd_CALIBRATE_NOZZLE_PROBE_OFFSET,
-            desc="Calibrate nozzle-to-probe Z offset at the Sexball station (TEMP)")
-        self.gcode.register_command(
-            "SAVE_TOOL_GCODE_OFFSETS", self.cmd_SAVE_TOOL_GCODE_OFFSETS,
-            desc="Persist medusahc offsets for tool T to save_variables")
+        # High-level calibration commands (console-only unless listed in _register_ui_macros)
+        private_macros = [
+            ("CALIBRATE_MOVE_OVER_PROBE", self.cmd_CALIBRATE_MOVE_OVER_PROBE,
+             "Move to the Sexball calibration station"),
+            ("CALIBRATE_TOOL_OFFSETS", self.cmd_CALIBRATE_TOOL_OFFSETS,
+             "Calibrate tool XY/Z offsets relative to T0 (TOOLS SAVE DROP)"),
+            ("SAVE_TOOL_GCODE_OFFSETS", self.cmd_SAVE_TOOL_GCODE_OFFSETS,
+             "Persist medusahc offsets for tool T to save_variables"),
+        ]
+        for name, handler, desc in private_macros:
+            self.gcode.register_command(name, handler, desc=desc)
+
+        self._register_ui_macros()
+
+    def _register_ui_macros(self):
+        """User-facing calibration macros visible in Mainsail/Fluidd."""
+        ui_macros = [
+            ("CALIBRATE_AND_SAVE_OFFSETS", self.cmd_CALIBRATE_AND_SAVE_OFFSETS,
+             "Run full offset calibration, save, and park"),
+            ("CALIBRATE_NOZZLE_PROBE_OFFSET", self.cmd_CALIBRATE_NOZZLE_PROBE_OFFSET,
+             "Calibrate nozzle-to-probe Z offset at the Sexball station (TEMP)"),
+        ]
+        for name, handler, desc in ui_macros:
+            btn = GcodeMacroButton(name, handler)
+            self.printer.add_object("gcode_macro %s" % name, btn)
+            self.gcode.register_command(name, btn.cmd, desc=desc)
 
     # ---------- Probe logic ----------
     def probe_xy(self, toolhead, top_pos, direction, gcmd, samples=None):
