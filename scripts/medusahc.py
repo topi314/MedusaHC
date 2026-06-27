@@ -504,22 +504,26 @@ class MedusaHC:
     def _set_offset(self, t, x, y, z):
         self.offsets[t] = {"x": float(x), "y": float(y), "z": float(z)}
 
-    def _save_tool_offsets(self, t):
+    def save_tool_offsets(self, t):
         off = self.offsets.get(t, {"x": 0.0, "y": 0.0, "z": 0.0})
         x = float(off.get("x", 0.0))
         y = float(off.get("y", 0.0))
         z = float(off.get("z", 0.0))
-        self._run("SAVE_VARIABLE VARIABLE=t%d_gcode_x_offset VALUE=%.6f" % (t, x))
-        self._run("SAVE_VARIABLE VARIABLE=t%d_gcode_y_offset VALUE=%.6f" % (t, y))
-        self._run("SAVE_VARIABLE VARIABLE=t%d_gcode_z_offset VALUE=%.6f" % (t, z))
         cfg = self.printer.lookup_object("configfile", None)
-        if cfg is not None:
-            sec = "medusahc_tool %d" % t
-            cfg.set(sec, "offset_x", "%.6f" % x)
-            cfg.set(sec, "offset_y", "%.6f" % y)
-            cfg.set(sec, "offset_z", "%.6f" % z)
+        if cfg is None:
+            raise self.gcode.error("save_tool_offsets: configfile not available")
+        sec = "medusahc_tool %d" % t
+        cfg.set(sec, "offset_x", "%.6f" % x)
+        cfg.set(sec, "offset_y", "%.6f" % y)
+        cfg.set(sec, "offset_z", "%.6f" % z)
         self._respond(
             "SAVE_TOOL_OFFSETS: T%d X=%.6f Y=%.6f Z=%.6f" % (t, x, y, z))
+
+    def notify_save_config(self):
+        self._respond(
+            "Offsets staged in [medusahc_tool N]. Run SAVE_CONFIG to write\n"
+            "them to printer.cfg and restart Klipper."
+        )
 
     def _require_eddy(self, gcmd):
         cmds = getattr(self.gcode, "commands", None)
@@ -547,15 +551,20 @@ class MedusaHC:
 
     def cmd_CALIBRATE_AND_SAVE_TOOL_Z_EDDY(self, gcmd):
         drop = int(gcmd.get_int("DROP", 1))
+        saved = False
         for t in range(self.tool_count):
             self.select_tool(t)
             self._tap_eddy_tool_z(gcmd)
-            self._save_tool_offsets(t)
+            if t > 0:
+                self.save_tool_offsets(t)
+                saved = True
         if drop:
             self._run("DROP_CLOSE")
             self._run(
                 "G1 X%.6f Y%.6f F10000"
                 % (self.eddy_park_x, self.eddy_park_y))
+        if saved:
+            self.notify_save_config()
 
     def _load_extruder_run_current(self):
         e_cur = 0.0
@@ -750,24 +759,16 @@ class MedusaHC:
     def cmd_INIT_SENSOR_STATE(self, gcmd):
         self._respond("INIT_SENSOR_STATE")
 
-        sv = self._status("save_variables").get("variables", {})
-        if not isinstance(sv, dict):
-            sv = {}
-
         self.cmd_CLOSE(gcmd)
         self._load_extruder_run_current()
         self.runtime_global["feeder_open"] = 0
 
         for t in range(self.tool_count):
-            sx = "t%d_gcode_x_offset" % t
-            sy = "t%d_gcode_y_offset" % t
-            sz = "t%d_gcode_z_offset" % t
-            if sx in sv and sy in sv and sz in sv:
-                x, y, z = float(sv[sx]), float(sv[sy]), float(sv[sz])
-                self._set_offset(t, x, y, z)
-                self._respond(
-                    "INIT TOOL_OFFSET T%d: X=%.6f Y=%.6f Z=%.6f" % (t, x, y, z)
-                )
+            off = self.offsets.get(t, {"x": 0.0, "y": 0.0, "z": 0.0})
+            self._respond(
+                "INIT TOOL_OFFSET T%d: X=%.6f Y=%.6f Z=%.6f"
+                % (t, float(off["x"]), float(off["y"]), float(off["z"]))
+            )
 
         self._set_state("ready")
 

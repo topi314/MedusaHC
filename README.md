@@ -23,7 +23,7 @@ macros.cfg           internal `_…` motion macros; public `OPEN`/`CLOSE`/`T0`�
 - **Tool count** — from contiguous `[medusahc_tool 0]` … `[medusahc_tool N-1]`; no `max_tool`.
 - **`T0`…`Tn`** — registered in Python as `gcode_macro T{n}` objects (`active` / `color` for Mainsail/Fluidd).
 - **`OPEN` / `CLOSE`** — same pattern (Python commands exposed as `gcode_macro` objects for the macro UI).
-- **Offsets** — G-code offsets relative to T0; persisted in `saved_vars.cfg` (alongside `medusahc.cfg`).
+- **Offsets** — G-code offsets relative to T0; stored in `[medusahc_tool N]` (`offset_x/y/z`).
 
 Board hardware (`[extruder]`, `[servo]`, pin overrides) is **not** part of the extension bundle — keep that in your own `printer.cfg` includes.
 
@@ -76,7 +76,7 @@ cp -r ~/MedusaHC/config/medusahc ~/printer_data/config/
 
 `install.sh` symlinks Python modules into `klippy/extras/` by default (use `--copy` to install copies instead).  
 Flags: `--scripts-only`, `--config-only`, `--force`, `--copy`, `--with-moonraker`, `--with-eddy`, `--uninstall`.  
-Config install is **non-destructive**: existing files in `medusahc/` are skipped; only missing files are added. `saved_vars.cfg` is never overwritten. Use `--force` to replace template files (still preserves `saved_vars.cfg`).  
+Config install is **non-destructive**: existing files in `medusahc/` are skipped; only missing files are added. Use `--force` to replace template files.  
 Overrides: `KLIPPER_DIR`, `CONFIG_DIR`, `MOONRAKER_CONF`, `MEDUSAHC_REPO_DIR`, `MEDUSAHC_REPO_URL`, `MEDUSAHC_REPO_BRANCH`.
 
 ---
@@ -85,10 +85,9 @@ Overrides: `KLIPPER_DIR`, `CONFIG_DIR`, `MOONRAKER_CONF`, `MEDUSAHC_REPO_DIR`, `
 
 ```
 config/medusahc/
-├── medusahc.cfg    # [medusahc], [medusahc_tool N], [save_variables]
+├── medusahc.cfg    # [medusahc], [medusahc_tool N]
 ├── macros.cfg      # motion macros (edit freely)
-├── calibrate.cfg   # optional [medusahc_calibrate] Sexball settings
-└── saved_vars.cfg  # offset persistence
+└── calibrate.cfg   # optional [medusahc_calibrate] Sexball settings
 ```
 
 ### `[medusahc]`
@@ -120,7 +119,7 @@ config/medusahc/
 |--------|----------|-------------|
 | `dock_pin` | yes | Base dock switch |
 | `x_base` | yes | Tool X position on base |
-| `offset_x/y/z` | no | Initial G-code offsets |
+| `offset_x/y/z` | no | G-code offsets relative to T0 (updated by calibration; run `SAVE_CONFIG` to persist) |
 | `prime_amount`, `prime_speed`, `prime_retract`, `prime_retract_speed` | no | Prime profile |
 | `clean_move`, `clean_move_x/y`, `clean_move_speed`, `clean_retract*` | no | Brush profile |
 | `first_prime_flag`, `first_prime_amount`, `first_prime_speed` | no | First prime after pickup |
@@ -144,17 +143,6 @@ Macros called by Python — safe to edit without restarting logic:
 ### `[medusahc_calibrate]`
 
 Optional. Include `calibrate.cfg` in `medusahc.cfg` when Sexball hardware is present. Probe pin, station XY/Z, spread, speeds — see `config/medusahc/calibrate.cfg`.
-
-### `[save_variables]`
-
-In `medusahc.cfg`:
-
-```ini
-[save_variables]
-filename: saved_vars.cfg
-```
-
-Variables written: `tN_gcode_x_offset`, `tN_gcode_y_offset`, `tN_gcode_z_offset`.
 
 ---
 
@@ -180,7 +168,7 @@ User-facing macros (shown in Mainsail/Fluidd): `OPEN`, `CLOSE`, `CLEAN`, `CALIBR
 | `ERROR` | Pause print and park on tool-change failure |
 | `T0` … `Tn` | Pick up tool *n* |
 
-`INIT_SENSOR_STATE` runs on `klippy:ready` — loads saved offsets, reads extruder TMC current, closes feeder.
+`INIT_SENSOR_STATE` runs on `klippy:ready` — logs `[medusahc_tool N]` offsets, reads extruder TMC current, closes feeder.
 
 ### `medusahc_calibrate`
 
@@ -237,6 +225,8 @@ Moonraker object: `medusahc`. Jinja: `{% set m = printer.medusahc %}`.
 ## Calibration notes
 
 Offsets are **G-code offsets** relative to T0. Test-print tool offsets use the **opposite sign**.
+
+After calibration with save enabled, run **`SAVE_CONFIG`** to write `#*# [medusahc_tool N]` overrides to `printer.cfg` and restart Klipper.
 
 XY and Z calibration are independent — use either or both:
 

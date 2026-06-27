@@ -12,7 +12,7 @@ PKGLIST=""
 #   ./install.sh                  # scripts (symlinked) + config
 #   ./install.sh --scripts-only   # Python modules only
 #   ./install.sh --config-only    # config bundle only
-#   ./install.sh --force          # overwrite existing bundle files (never saved_vars.cfg)
+#   ./install.sh --force          # overwrite existing bundle files
 #   ./install.sh --copy           # copy scripts instead of symlink
 #   ./install.sh --with-moonraker # add [update_manager medusahc]
 #   ./install.sh --with-eddy      # also install probe_eddy_ng.py (see README)
@@ -232,12 +232,6 @@ install_config_tree() {
         [[ -f "$f" ]] || continue
         name="$(basename "$f")"
         target="${dest}/${name}"
-
-        if [[ "$name" == "saved_vars.cfg" && -f "$target" ]]; then
-            log "User offsets preserved (skip): ${target}"
-            skipped=$((skipped + 1))
-            continue
-        fi
 
         if [[ -f "$target" && "$FORCE" -eq 0 ]]; then
             log "Config exists (skip): ${target}"

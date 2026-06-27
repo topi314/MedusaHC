@@ -1,6 +1,6 @@
 # Kinematic probe calibration for MedusaHC multi-tool offsets.
 #
-# Applies and persists offsets to medusahc runtime state and save_variables.
+# Applies and persists offsets to medusahc runtime state and [medusahc_tool N].
 
 import logging
 
@@ -95,7 +95,7 @@ class MedusaHCCalibrate:
             ("CALIBRATE_NOZZLE_PROBE_OFFSET", self.cmd_CALIBRATE_NOZZLE_PROBE_OFFSET,
              "Calibrate nozzle-to-probe Z offset at the Sexball station (TEMP)"),
             ("SAVE_TOOL_GCODE_OFFSETS", self.cmd_SAVE_TOOL_GCODE_OFFSETS,
-             "Persist medusahc offsets for tool T to save_variables"),
+             "Persist medusahc offsets for tool T to [medusahc_tool N]"),
         ]
         for name, handler, desc in private_macros:
             self.gcode.register_command(name, handler, desc=desc)
@@ -284,18 +284,11 @@ class MedusaHCCalibrate:
         medusa.set_offset(t, float(x), float(y), float(z))
 
     def _save_offsets(self, t, x, y, z):
-        self._run("SAVE_VARIABLE VARIABLE=t%d_gcode_x_offset VALUE=%.6f" % (t, x))
-        self._run("SAVE_VARIABLE VARIABLE=t%d_gcode_y_offset VALUE=%.6f" % (t, y))
-        self._run("SAVE_VARIABLE VARIABLE=t%d_gcode_z_offset VALUE=%.6f" % (t, z))
-
-        cfg = self.printer.lookup_object("configfile", None)
-        if cfg is not None:
-            sec = "medusahc_tool %d" % t
-            cfg.set(sec, "offset_x", "%.6f" % x)
-            cfg.set(sec, "offset_y", "%.6f" % y)
-            cfg.set(sec, "offset_z", "%.6f" % z)
-
-        self._respond("SAVE_TOOL_GCODE_OFFSETS: T%d X=%.6f Y=%.6f Z=%.6f" % (t, x, y, z))
+        medusa = self.printer.lookup_object("medusahc", None)
+        if medusa is None:
+            raise self.gcode.error("medusahc not loaded")
+        medusa.set_offset(t, float(x), float(y), float(z))
+        medusa.save_tool_offsets(t)
 
     def cmd_CALIBRATE_MOVE_OVER_PROBE(self, gcmd):
         self._run("BED_MESH_CLEAR")
@@ -344,6 +337,9 @@ class MedusaHCCalibrate:
             self._run("DROP_CLOSE")
             self._run("G1 X%.6f Y%.6f F10000" % (self.default_park_x, self.default_park_y))
 
+        if save:
+            medusa.notify_save_config()
+
     def cmd_CALIBRATE_AND_SAVE_OFFSETS(self, gcmd):
         if gcmd.get("SAVE", None) is None and gcmd.get("DROP", None) is None:
             self.cmd_CALIBRATE_TOOL_OFFSETS(
@@ -379,6 +375,7 @@ class MedusaHCCalibrate:
 
         off = medusa.offsets.get(t, {"x": 0.0, "y": 0.0, "z": 0.0})
         self._save_offsets(t, float(off.get("x", 0.0)), float(off.get("y", 0.0)), float(off.get("z", 0.0)))
+        medusa.notify_save_config()
 
 
 class PrinterProbeMultiAxis:
