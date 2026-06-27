@@ -92,6 +92,8 @@ class MedusaHCCalibrate:
              "Move to the Sexball calibration station"),
             ("CALIBRATE_TOOL_OFFSETS", self.cmd_CALIBRATE_TOOL_OFFSETS,
              "Calibrate tool XY/Z offsets relative to T0 (TOOLS SAVE DROP)"),
+            ("CALIBRATE_NOZZLE_PROBE_OFFSET", self.cmd_CALIBRATE_NOZZLE_PROBE_OFFSET,
+             "Calibrate nozzle-to-probe Z offset at the Sexball station (TEMP)"),
             ("SAVE_TOOL_GCODE_OFFSETS", self.cmd_SAVE_TOOL_GCODE_OFFSETS,
              "Persist medusahc offsets for tool T to save_variables"),
         ]
@@ -105,8 +107,6 @@ class MedusaHCCalibrate:
         ui_macros = [
             ("CALIBRATE_AND_SAVE_OFFSETS", self.cmd_CALIBRATE_AND_SAVE_OFFSETS,
              "Run full offset calibration, save, and park"),
-            ("CALIBRATE_NOZZLE_PROBE_OFFSET", self.cmd_CALIBRATE_NOZZLE_PROBE_OFFSET,
-             "Calibrate nozzle-to-probe Z offset at the Sexball station (TEMP)"),
         ]
         for name, handler, desc in ui_macros:
             btn = GcodeMacroButton(name, handler)

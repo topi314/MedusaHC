@@ -94,6 +94,13 @@ class MedusaHC:
         }
         self.e_run_current_override = config.getfloat("e_run_current", 0.0)
 
+        self.eddy_tap_x = config.getfloat("eddy_tap_x", 150.0)
+        self.eddy_tap_y = config.getfloat("eddy_tap_y", 150.0)
+        self.eddy_tap_z = config.getfloat("eddy_tap_z", 10.0)
+        self.eddy_tap_f = config.getfloat("eddy_tap_f", 10000.0)
+        self.eddy_park_x = config.getfloat("eddy_park_x", 20.0)
+        self.eddy_park_y = config.getfloat("eddy_park_y", 220.0)
+
         self.tool_count = self._derive_tool_count(config)
         self.tool_profiles = {}
         self.offsets = {}
@@ -277,11 +284,14 @@ class MedusaHC:
             self.gcode.register_command(name, fn)
 
     def _register_ui_macros(self):
-        """Register OPEN/CLOSE as gcode_macro objects (visible in Mainsail/Fluidd)."""
+        """Register OPEN/CLOSE/CLEAN and calibration macros for Mainsail/Fluidd."""
         ui_macros = [
             ("OPEN", self.cmd_OPEN, "Open feeder latch"),
             ("CLOSE", self.cmd_CLOSE, "Close feeder latch"),
             ("CLEAN", self.cmd_CLEAN, "Clean active tool nozzle on brush"),
+            ("CALIBRATE_AND_SAVE_TOOL_Z_EDDY",
+             self.cmd_CALIBRATE_AND_SAVE_TOOL_Z_EDDY,
+             "Eddy-ng tap Z for all tools, save, park"),
         ]
         for name, handler, desc in ui_macros:
             btn = GcodeMacroButton(name, handler)
@@ -493,6 +503,59 @@ class MedusaHC:
 
     def _set_offset(self, t, x, y, z):
         self.offsets[t] = {"x": float(x), "y": float(y), "z": float(z)}
+
+    def _save_tool_offsets(self, t):
+        off = self.offsets.get(t, {"x": 0.0, "y": 0.0, "z": 0.0})
+        x = float(off.get("x", 0.0))
+        y = float(off.get("y", 0.0))
+        z = float(off.get("z", 0.0))
+        self._run("SAVE_VARIABLE VARIABLE=t%d_gcode_x_offset VALUE=%.6f" % (t, x))
+        self._run("SAVE_VARIABLE VARIABLE=t%d_gcode_y_offset VALUE=%.6f" % (t, y))
+        self._run("SAVE_VARIABLE VARIABLE=t%d_gcode_z_offset VALUE=%.6f" % (t, z))
+        cfg = self.printer.lookup_object("configfile", None)
+        if cfg is not None:
+            sec = "medusahc_tool %d" % t
+            cfg.set(sec, "offset_x", "%.6f" % x)
+            cfg.set(sec, "offset_y", "%.6f" % y)
+            cfg.set(sec, "offset_z", "%.6f" % z)
+        self._respond(
+            "SAVE_TOOL_OFFSETS: T%d X=%.6f Y=%.6f Z=%.6f" % (t, x, y, z))
+
+    def _require_eddy(self, gcmd):
+        cmds = getattr(self.gcode, "commands", None)
+        if cmds is not None and cmds.get("PROBE_EDDY_NG_TOOL_TAP") is not None:
+            return
+        for name in self.printer.objects:
+            if name.startswith("probe_eddy"):
+                return
+        raise gcmd.error(
+            "eddy-ng not loaded; install probe_eddy_ng and configure tap")
+
+    def _move_to_eddy_tap(self, gcmd):
+        x = gcmd.get_float("X", self.eddy_tap_x)
+        y = gcmd.get_float("Y", self.eddy_tap_y)
+        z = gcmd.get_float("Z", self.eddy_tap_z)
+        f = gcmd.get_float("F", self.eddy_tap_f)
+        self._run("BED_MESH_CLEAR")
+        self._run("G0 Z%.6f F%.6f" % (z, f))
+        self._run("G0 X%.6f Y%.6f F%.6f" % (x, y, f))
+
+    def _tap_eddy_tool_z(self, gcmd):
+        self._require_eddy(gcmd)
+        self._move_to_eddy_tap(gcmd)
+        self._run("PROBE_EDDY_NG_TOOL_TAP")
+
+    def cmd_CALIBRATE_AND_SAVE_TOOL_Z_EDDY(self, gcmd):
+        drop = int(gcmd.get_int("DROP", 1))
+        for t in range(self.tool_count):
+            self.select_tool(t)
+            self._tap_eddy_tool_z(gcmd)
+            self._save_tool_offsets(t)
+        if drop:
+            self._run("DROP_CLOSE")
+            self._run(
+                "G1 X%.6f Y%.6f F10000"
+                % (self.eddy_park_x, self.eddy_park_y))
 
     def _load_extruder_run_current(self):
         e_cur = 0.0

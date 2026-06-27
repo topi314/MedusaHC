@@ -87,7 +87,7 @@ Overrides: `KLIPPER_DIR`, `CONFIG_DIR`, `MOONRAKER_CONF`, `MEDUSAHC_REPO_DIR`, `
 config/medusahc/
 ├── medusahc.cfg    # [medusahc], [medusahc_tool N], [save_variables]
 ├── macros.cfg      # motion macros (edit freely)
-├── calibrate.cfg   # [medusahc_calibrate] probe settings
+├── calibrate.cfg   # optional [medusahc_calibrate] Sexball settings
 └── saved_vars.cfg  # offset persistence
 ```
 
@@ -107,6 +107,8 @@ config/medusahc/
 | `e_open`, `e_close` | Feeder latch extruder distances (mm) |
 | `e_run_current` | Optional extruder `run_current` override (A) if auto-detect fails |
 | `e_cur_high_mult` | TMC current multiplier during `OPEN` / `CLOSE` |
+| `eddy_tap_x/y/z`, `eddy_tap_f` | Bed tap point for eddy-ng Z calibration |
+| `eddy_park_x/y` | Park position after `CALIBRATE_AND_SAVE_TOOL_Z_EDDY` |
 | `sync_mainsail_tools` | Update `T{n}` `active` variable |
 | `sync_mainsail_sensors` | Update `T{n}` `color` dock lamp |
 | `color_active`, `color_pressed`, `color_released` | Lamp colours (hex, no `#`) |
@@ -141,7 +143,7 @@ Macros called by Python — safe to edit without restarting logic:
 
 ### `[medusahc_calibrate]`
 
-Probe pin, station XY/Z, spread, speeds — see `config/medusahc/calibrate.cfg`. Requires a kinematic probe (Sexball) wired per section `pin`.
+Optional. Include `calibrate.cfg` in `medusahc.cfg` when Sexball hardware is present. Probe pin, station XY/Z, spread, speeds — see `config/medusahc/calibrate.cfg`.
 
 ### `[save_variables]`
 
@@ -160,6 +162,8 @@ Variables written: `tN_gcode_x_offset`, `tN_gcode_y_offset`, `tN_gcode_z_offset`
 
 ### `medusahc`
 
+User-facing macros (shown in Mainsail/Fluidd): `OPEN`, `CLOSE`, `CLEAN`, `CALIBRATE_AND_SAVE_TOOL_Z_EDDY`.
+
 | Command | Description |
 |---------|-------------|
 | `DROP` | Drop current tool |
@@ -167,8 +171,9 @@ Variables written: `tN_gcode_x_offset`, `tN_gcode_y_offset`, `tN_gcode_z_offset`
 | `DROP_TOOL` | Drop without close sequence |
 | `OPEN` / `CLOSE` | Feeder latch |
 | `CLEAN` | Brush routine |
+| `CALIBRATE_AND_SAVE_TOOL_Z_EDDY` | Eddy-ng tap Z for all tools, save, park |
 | `TOOL_OFFSET_T T=n MOVE=0\|1` | Apply offsets for tool *n* |
-| `SET_TOOL_Z_OFFSET VALUE=z` | Record probe Z (Eddy multi-tool) |
+| `SET_TOOL_Z_OFFSET VALUE=z` | Record probe Z (internal; used by eddy-ng tap) |
 | `LAYER_SET L=n` | Set layer counter |
 | `PRIME_FLAGS_SET` / `PRIME_FLAGS_CLEAR` | Reset first-prime flags |
 | `CLEAR_ERROR` | Clear error state |
@@ -179,13 +184,11 @@ Variables written: `tN_gcode_x_offset`, `tN_gcode_y_offset`, `tN_gcode_z_offset`
 
 ### `medusahc_calibrate`
 
+User-facing macro (shown in Mainsail/Fluidd):
+
 | Command | Description |
 |---------|-------------|
-| `CALIBRATE_AND_SAVE_OFFSETS` | Full calibration, save, park |
-| `CALIBRATE_TOOL_OFFSETS` | Calibrate tools 1…N (`TOOLS=`, `SAVE=`, `DROP=`) |
-| `CALIBRATE_MOVE_OVER_PROBE` | Move to probe station |
-| `CALIBRATE_NOZZLE_PROBE_OFFSET` | Nozzle vs probe Z (`TEMP=`) |
-| `SAVE_TOOL_GCODE_OFFSETS T=n` | Write current offsets to `saved_vars` |
+| `CALIBRATE_AND_SAVE_OFFSETS` | Full Sexball XY/Z calibration, save, park |
 
 ---
 
@@ -235,9 +238,11 @@ Moonraker object: `medusahc`. Jinja: `{% set m = printer.medusahc %}`.
 
 Offsets are **G-code offsets** relative to T0. Test-print tool offsets use the **opposite sign**.
 
-**Sexball:** configure `[medusahc_calibrate]`, run `CALIBRATE_AND_SAVE_OFFSETS`.
+XY and Z calibration are independent — use either or both:
 
-**Eddy-ng (optional):** deploy `scripts/probe_eddy_ng.py` to `~/eddy-ng` (`./install.sh --with-eddy`), then configure eddy-ng in your printer.cfg and run `TOOL_Z_CALIBRATION`.
+**Sexball (XY + relative Z):** include `calibrate.cfg`, configure `[medusahc_calibrate]`, run `CALIBRATE_AND_SAVE_OFFSETS`.
+
+**Eddy-ng tap (Z only):** install eddy-ng (`./install.sh --with-eddy`), set `eddy_tap_x/y` in `[medusahc]`, home Z, then run `CALIBRATE_AND_SAVE_TOOL_Z_EDDY` from the macro panel. Does not require Sexball or `[medusahc_calibrate]`.
 
 ---
 
