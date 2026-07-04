@@ -68,6 +68,7 @@ class MedusaHCCalibrate:
         self.probe_x = config.getfloat("probe_x", 223.0)
         self.probe_y = config.getfloat("probe_y", 210.0)
         self.probe_f = config.getfloat("probe_speed", 10000.0)
+        self.probe_z_speed = config.getfloat("probe_z_speed", self.lift_speed, above=0.0)
         self.default_hotend_temp = config.getfloat("probe_nozzle_temp", 150.0)
         self.default_park_x = config.getfloat("park_x", 20.0)
         self.default_park_y = config.getfloat("park_y", 220.0)
@@ -296,8 +297,9 @@ class MedusaHCCalibrate:
             x, y = self.sensor_location[0], self.sensor_location[1]
         else:
             x, y = self.probe_x, self.probe_y
-        self._run("G0 Z%.6f F%.6f" % (self.probe_z, self.probe_f))
-        self._run("G0 X%.6f Y%.6f F%.6f" % (x, y, self.probe_f))
+        toolhead = self.printer.lookup_object('toolhead')
+        toolhead.manual_move([None, None, self.probe_z], self.probe_z_speed)
+        toolhead.manual_move([x, y, None], self.probe_f / 60.0)
 
     def cmd_CALIBRATE_TOOL_OFFSETS(self, gcmd):
         medusa = self._medusa(gcmd)
