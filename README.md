@@ -98,6 +98,7 @@ config/medusahc/
 | `init_delay` | Seconds before first sensor poll after ready |
 | `assign_delay` | Debounce before recomputing tool state |
 | `verbose` | Log pin transitions |
+| `test_mode` | Ignore dock/head switches. Tool occupancy is tracked from `T`/`DROP` instead of sensors. Toggle at runtime with `TEST_MODE` or `TEST_MODE ENABLE=0\|1`. |
 | `tool_mount` | `front` (default, toolhead in front of X) or `back`/`rear` (toolhead behind X, docks at the rear). Back is a full mirror of front kinematics (latch, approach, prime shift, brush wipe). Set `y_safe` / `y_latch` / `y_prime` / `y_brush` to the physical rear-dock Y; leave `x_shift` / `x_prime_shift` / `clean_move_*` as for the front layout. |
 | `y_safe`, `y_latch`, `x_shift` | Pickup/drop geometry |
 | `fast_accel`, `fast_speed` | Tool-change motion caps |
@@ -154,7 +155,7 @@ Optional. Include `calibrate.cfg` in `medusahc.cfg` when Sexball hardware is pre
 
 ### `medusahc`
 
-User-facing macros (shown in Mainsail/Fluidd): `OPEN`, `CLOSE`, `CLEAN`, `CALIBRATE_AND_SAVE_TOOL_Z_EDDY`.
+User-facing macros (shown in Mainsail/Fluidd): `OPEN`, `CLOSE`, `CLEAN`, `CALIBRATE_AND_SAVE_TOOL_Z_EDDY`, `TEST_MODE`.
 
 | Command | Description |
 |---------|-------------|
@@ -163,6 +164,7 @@ User-facing macros (shown in Mainsail/Fluidd): `OPEN`, `CLOSE`, `CLEAN`, `CALIBR
 | `DROP_TOOL` | Drop without close sequence |
 | `OPEN` / `CLOSE` | Feeder latch |
 | `CLEAN` | Brush routine |
+| `TEST_MODE` | Toggle ignoring dock/head switches (`ENABLE=0\|1` optional) |
 | `CALIBRATE_AND_SAVE_TOOL_Z_EDDY` | Eddy-ng tap Z for all tools, save, park |
 | `TOOL_OFFSET_T T=n MOVE=0\|1` | Apply offsets for tool *n* |
 | `SET_TOOL_Z_OFFSET VALUE=z` | Record probe Z (internal; used by eddy-ng tap) |
@@ -204,6 +206,7 @@ Moonraker object: `medusahc`. Jinja: `{% set m = printer.medusahc %}`.
 | `e_cur`, `e_cur_high` | float | Extruder TMC currents |
 | `servo` | str | Feeder latch servo name |
 | `tool_mount` | str | `front` or `back` |
+| `test_mode` | bool | Switches ignored; occupancy is logical |
 | `x_dir`, `y_dir` | float | Latch direction (`-1` front, `+1` back) |
 | `y_safe`, `y_latch`, `x_shift`, `x_clean_move`, … | float | Motion defaults from `[medusahc]` |
 

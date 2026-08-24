@@ -77,6 +77,8 @@ class MedusaHC:
         self._last_ui_active = None
         self._last_ui_lamp = {}
         self.tool_buttons = []
+        self._test_mode_btn = None
+        self.test_mode = int(config.get("test_mode", 0)) != 0
 
         mount_raw = str(config.get("tool_mount", "front")).strip().lower()
         mount_aliases = {"front": "front", "back": "back", "rear": "back"}
@@ -305,9 +307,14 @@ class MedusaHC:
             ("CALIBRATE_AND_SAVE_TOOL_Z_EDDY",
              self.cmd_CALIBRATE_AND_SAVE_TOOL_Z_EDDY,
              "Eddy-ng tap Z for all tools, save, park"),
+            ("TEST_MODE", self.cmd_TEST_MODE,
+             "Ignore dock/head switches (dry-run tool changes)"),
         ]
         for name, handler, desc in ui_macros:
             btn = GcodeMacroButton(name, handler)
+            if name == "TEST_MODE":
+                btn.variables = {"enabled": 1 if self.test_mode else 0}
+                self._test_mode_btn = btn
             self.printer.add_object("gcode_macro %s" % name, btn)
             self.gcode.register_command(name, btn.cmd, desc=desc)
 
@@ -349,7 +356,8 @@ class MedusaHC:
     def _state_string(self):
         if int(self.runtime_global.get("error_state", 0)):
             return "error"
-        if self.current_tool == -2 and self._machine_state == "ready":
+        if (not self.test_mode and self.current_tool == -2
+                and self._machine_state == "ready"):
             return "error"
         return self._machine_state
 
@@ -369,6 +377,7 @@ class MedusaHC:
             "e_cur_high": float(self.runtime_global["e_cur_high"]),
             "servo": self.servo_name,
             "tool_mount": self.tool_mount,
+            "test_mode": bool(self.test_mode),
         }
         for key, val in self.common_cfg.items():
             s[key] = float(val)
@@ -472,6 +481,10 @@ class MedusaHC:
     def _compute_timer_cb(self, eventtime):
         self._compute_timer = None
         try:
+            if self.test_mode:
+                if self.sync_mainsail_sensors:
+                    self._refresh_lamps()
+                return self.reactor.NEVER
             ct, dbg = self._compute_current_tool()
             self.current_tool = int(ct)
             if self.verbose:
@@ -660,11 +673,43 @@ class MedusaHC:
     def _ensure_closed(self):
         self.cmd_CLOSE(None)
 
+    def _set_logical_tool(self, ct):
+        self.current_tool = int(ct)
+        if self.sync_mainsail_tools:
+            self._sync_mainsail_tools(self.current_tool)
+        if self.sync_mainsail_sensors:
+            self._refresh_lamps()
+
+    def _logical_tool(self):
+        ct = int(self.current_tool)
+        if self.test_mode and ct == -2:
+            return -1
+        return ct
+
+    def _apply_test_mode(self):
+        if self._test_mode_btn is not None:
+            updated = dict(self._test_mode_btn.variables)
+            updated["enabled"] = 1 if self.test_mode else 0
+            self._test_mode_btn.variables = updated
+        if self.test_mode:
+            if self.current_tool == -2:
+                self._set_logical_tool(-1)
+            self.runtime_global["error_state"] = 0
+            if self._machine_state == "error":
+                self._set_state("ready")
+            self._respond(
+                "TEST_MODE on — switches ignored, logical tool=%d"
+                % self.current_tool
+            )
+        else:
+            self._respond("TEST_MODE off — using switches")
+            self._schedule_compute("test_mode_off", 0.0)
+
     def _pre_pickup_checks(self, t):
         if int(self.runtime_global.get("error_state", 0)) == 1:
             self._respond("pre_pickup: paused after error")
             return False
-        ct = self.current_tool
+        ct = self._logical_tool()
         if ct == -2:
             self._respond("pre_pickup: sensor error")
             self.cmd_ERROR(None)
@@ -684,7 +729,7 @@ class MedusaHC:
         return True
 
     def _pre_drop_checks(self):
-        ct = self.current_tool
+        ct = self._logical_tool()
         if ct == -2:
             self._respond("pre_drop: sensor error")
             self.cmd_ERROR(None)
@@ -699,6 +744,10 @@ class MedusaHC:
         return True
 
     def _verify_pickup(self, t):
+        if self.test_mode:
+            self._set_logical_tool(t)
+            self._respond("verify_pickup OK (test_mode T%d)" % t)
+            return True
         ct = self.current_tool
         if ct != t:
             self._respond("verify_pickup: mismatch (ct=%d need=%d)" % (ct, t))
@@ -708,6 +757,10 @@ class MedusaHC:
         return True
 
     def _verify_drop(self):
+        if self.test_mode:
+            self._set_logical_tool(-1)
+            self._respond("verify_drop OK (test_mode)")
+            return True
         ct = self.current_tool
         if ct != -1:
             self._respond("verify_drop: mismatch (ct=%d)" % ct)
@@ -731,7 +784,7 @@ class MedusaHC:
             self._run("M106 S0")
 
     def _do_drop(self):
-        ct = self.current_tool
+        ct = self._logical_tool()
         self._ensure_open()
         self._run("_DROP_MOVE T=%d" % ct)
         self._run("G4 P900")
@@ -790,6 +843,8 @@ class MedusaHC:
             )
 
         self._set_state("ready")
+        if self.test_mode:
+            self._apply_test_mode()
 
     def select_tool(self, t, gcmd=None):
         t = int(t)
@@ -816,7 +871,7 @@ class MedusaHC:
             self._run("G1 Z1 F14000")
             self._run("G90")
 
-        ct = self.current_tool
+        ct = self._logical_tool()
         if ct == -2:
             self.cmd_ERROR(gcmd)
             return
@@ -864,7 +919,7 @@ class MedusaHC:
         self._ensure_closed()
 
     def cmd_CLEAN(self, gcmd):
-        ct = self.current_tool
+        ct = self._logical_tool()
         if ct < 0 or ct >= self.tool_count:
             self._respond("CLEAN: no valid tool selected")
             self.cmd_ERROR(gcmd)
@@ -922,7 +977,7 @@ class MedusaHC:
 
     def cmd_SET_TOOL_Z_OFFSET(self, gcmd):
         v = gcmd.get_float("VALUE")
-        ct = self.current_tool
+        ct = self._logical_tool()
         if ct < 0:
             raise gcmd.error("SET_TOOL_Z_OFFSET: no tool on head")
         if ct == 0:
@@ -943,6 +998,14 @@ class MedusaHC:
         self.runtime_global["error_state"] = 0
         if self._machine_state == "error":
             self._set_state("ready")
+
+    def cmd_TEST_MODE(self, gcmd):
+        enable = gcmd.get("ENABLE", None)
+        if enable is None:
+            self.test_mode = not self.test_mode
+        else:
+            self.test_mode = gcmd.get_int("ENABLE") != 0
+        self._apply_test_mode()
 
     def cmd_SET_FIRST_PRIME_FLAG(self, gcmd):
         t = self._require_t(gcmd, "T")
