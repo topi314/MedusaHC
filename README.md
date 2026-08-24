@@ -98,6 +98,7 @@ config/medusahc/
 | `init_delay` | Seconds before first sensor poll after ready |
 | `assign_delay` | Debounce before recomputing tool state |
 | `verbose` | Log pin transitions |
+| `tool_mount` | `front` (default, toolhead in front of X) or `back`/`rear` (toolhead behind X, docks at the rear). Back is a full mirror of front kinematics (latch, approach, prime shift, brush wipe). Set `y_safe` / `y_latch` / `y_prime` / `y_brush` to the physical rear-dock Y; leave `x_shift` / `x_prime_shift` / `clean_move_*` as for the front layout. |
 | `y_safe`, `y_latch`, `x_shift` | Pickup/drop geometry |
 | `fast_accel`, `fast_speed` | Tool-change motion caps |
 | `servo` | Feeder latch servo name (must match `[servo]` section) |
@@ -202,6 +203,8 @@ Moonraker object: `medusahc`. Jinja: `{% set m = printer.medusahc %}`.
 | `eddy_z`, `t0_probe_z` | float | Eddy calibration helpers |
 | `e_cur`, `e_cur_high` | float | Extruder TMC currents |
 | `servo` | str | Feeder latch servo name |
+| `tool_mount` | str | `front` or `back` |
+| `x_dir`, `y_dir` | float | Latch direction (`-1` front, `+1` back) |
 | `y_safe`, `y_latch`, `x_shift`, `x_clean_move`, … | float | Motion defaults from `[medusahc]` |
 
 ### Per tool (`N` = 0 … tool_count−1)

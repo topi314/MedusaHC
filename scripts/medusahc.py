@@ -78,6 +78,17 @@ class MedusaHC:
         self._last_ui_lamp = {}
         self.tool_buttons = []
 
+        mount_raw = str(config.get("tool_mount", "front")).strip().lower()
+        mount_aliases = {"front": "front", "back": "back", "rear": "back"}
+        if mount_raw not in mount_aliases:
+            raise config.error(
+                "medusahc: tool_mount must be 'front' or 'back' (got %s)"
+                % (mount_raw,)
+            )
+        self.tool_mount = mount_aliases[mount_raw]
+        # Front: docks in -Y, latch in -X. Back: full X/Y mirror (toolhead behind X).
+        mount_dir = -1.0 if self.tool_mount == "front" else 1.0
+
         self.common_cfg = {
             "y_safe": config.getfloat("y_safe", -5.0),
             "y_latch": config.getfloat("y_latch", -57.6),
@@ -91,6 +102,8 @@ class MedusaHC:
             "e_open": config.getfloat("e_open", -4.0),
             "e_close": config.getfloat("e_close", 0.5),
             "e_cur_high_mult": config.getfloat("e_cur_high_mult", 1.6),
+            "x_dir": mount_dir,
+            "y_dir": mount_dir,
         }
         self.e_run_current_override = config.getfloat("e_run_current", 0.0)
 
@@ -355,6 +368,7 @@ class MedusaHC:
             "e_cur": float(self.runtime_global["e_cur"]),
             "e_cur_high": float(self.runtime_global["e_cur_high"]),
             "servo": self.servo_name,
+            "tool_mount": self.tool_mount,
         }
         for key, val in self.common_cfg.items():
             s[key] = float(val)
@@ -758,6 +772,11 @@ class MedusaHC:
 
     def cmd_INIT_SENSOR_STATE(self, gcmd):
         self._respond("INIT_SENSOR_STATE")
+        self._respond("INIT tool_mount=%s x_dir=%g y_dir=%g" % (
+            self.tool_mount,
+            float(self.common_cfg["x_dir"]),
+            float(self.common_cfg["y_dir"]),
+        ))
 
         self.cmd_CLOSE(gcmd)
         self._load_extruder_run_current()
@@ -787,8 +806,9 @@ class MedusaHC:
         self._run("TOOL_OFFSET_T T=%d MOVE=0" % t)
 
         if self._print_state() == "printing":
+            y_clear = 2.0 * float(self.common_cfg["y_dir"])
             self._run("G91")
-            self._run("G1 Y-2 F15000")
+            self._run("G1 Y%.3f F15000" % y_clear)
             self._run("G1 Z3 F14000")
             self._run("G90")
         else:
