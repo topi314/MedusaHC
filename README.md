@@ -254,26 +254,36 @@ when available.
 
 1. Install T0 and clean the nozzle.
 2. Move T0 above the stationary coil at the intended measurement height.
-3. Enter approximate `sensor_x`, `sensor_y`, and `sensor_z` in `[eddy_seek]`.
+3. Record the machine X/Y position as `eddy_seek_x` and `eddy_seek_y` in
+   `[medusahc_calibrate]`. Set `eddy_seek_z` to the measurement height.
 4. Run EddySeek's accuracy command:
 
 ```gcode
 EDDY_SEEK_ACCURACY TOOL=0 REPEATS=10
 ```
 
-5. Add the reported mean X/Y correction to `sensor_x`/`sensor_y` and repeat
-   until the mean is close to zero and repeatability is acceptable.
+5. Use the measured coil center for `eddy_seek_x`/`eddy_seek_y` and verify
+   repeatability at that position. Current EddySeek does not position T0 for you.
 
 Do this at the final measurement height: a tilted coil or asymmetric magnetic
 field can move the apparent XY center when Z changes. Keep enough physical
 clearance for a small filament string.
 
-Set MedusaHC-Calibrate to the same machine height:
+Set MedusaHC-Calibrate to the same machine height, and add your verified
+`eddy_seek_x` and `eddy_seek_y` coordinates (no universal XY defaults exist):
 
 ```ini
 eddy_seek_z: 5.0
 eddy_seek_repeats: 3
 ```
+
+Before every XY measurement, MedusaHC raises Z to at least `final_lift_z`,
+moves X and then Y to the configured coil position, and lowers to
+`eddy_seek_z + measured Z offset`. Missing XY coordinates reject XYZ calibration
+before heaters or movement start. Z-only Tap does not need these coordinates.
+Existing installations retain their config on update; add the two coordinates
+manually. `LOAD=0` is retained for older EddySeek versions; current releases
+ignore it and leave tool changes to MedusaHC.
 
 If EddySeek uses `sensor_z`, its allowed Z band must include
 `eddy_seek_z + the current tool's measured Z offset`.
@@ -310,8 +320,8 @@ Run:
 bash install.sh uninstall
 ```
 
-The installer asks before editing `printer.cfg` and before deleting the user
-configuration. It does not remove MedusaHC, EddySeek, Klipper, saved offsets,
+The installer asks before removing its include and Moonraker updater.
+User calibration configuration is retained for reinstall. It does not remove MedusaHC, EddySeek, Klipper, saved offsets,
 or any unrelated file.
 
 ## License

@@ -228,6 +228,8 @@ class MedusaHCCalibrate:
         self.tap_y = config.getfloat("tap_y", 190.0)
         self.tap_samples = config.getint("tap_samples", 3, minval=1, maxval=20)
         self.eddy_seek_z = config.getfloat("eddy_seek_z", 5.0)
+        self.eddy_seek_x = config.getfloat("eddy_seek_x", None)
+        self.eddy_seek_y = config.getfloat("eddy_seek_y", None)
         self.eddy_seek_repeats = config.getint(
             "eddy_seek_repeats", 3, minval=1, maxval=20
         )
@@ -765,10 +767,14 @@ class MedusaHCCalibrate:
 
     def _eddy_seek_xy(self, tool, z_delta):
         self.current_direction = "EDDY_XY"
+        position = self.printer.lookup_object("toolhead").get_position()
+        self._move([None, None, max(position[2], self.final_lift_z,
+                                   self.eddy_seek_z + z_delta)], self.positioning_speed)
+        self._move([self.eddy_seek_x, None, None], self.transition_speed)
+        self._move([None, self.eddy_seek_y, None], self.transition_speed)
         self._move([None, None, self.eddy_seek_z + z_delta], self.positioning_speed)
-        # EddySeek owns sensor_x/sensor_y, moves to the sensor itself and keeps
-        # its T0 reference for subsequent tools.  LOAD=0 leaves tool changing
-        # entirely under MedusaHC control.
+        # Position every tool explicitly, including T0. LOAD=0 also supports
+        # older EddySeek releases; current releases ignore that parameter.
         eddy = self.printer.lookup_object("eddy_seek", None)
         if eddy is None:
             raise self.printer.command_error("[eddy_seek] is not configured")
@@ -848,7 +854,13 @@ class MedusaHCCalibrate:
                 % ",".join("T%d" % tool for tool in tools)
             )
 
+    def _require_idle_print(self, gcmd):
+        stats = self.printer.lookup_object("print_stats", None)
+        if getattr(stats, "state", "") in ("printing", "paused"):
+            raise gcmd.error("Calibration is unavailable during a print")
+
     def cmd_MHC_CALIBRATE_ALL(self, gcmd):
+        self._require_idle_print(gcmd)
         if self.operation != "idle":
             raise gcmd.error("MedusaHC calibration is already running")
         self.operation = "calibrating_all"
@@ -907,6 +919,9 @@ class MedusaHCCalibrate:
             self.current_tool = -1
 
     def _run_eddy_calibration(self, gcmd, xy_enabled):
+        self._require_idle_print(gcmd)
+        if xy_enabled and (self.eddy_seek_x is None or self.eddy_seek_y is None):
+            raise gcmd.error("Configure eddy_seek_x and eddy_seek_y before Eddy XYZ calibration")
         if self.operation != "idle":
             raise gcmd.error("MedusaHC calibration is already running")
         self.operation = "calibrating_eddy" if xy_enabled else "calibrating_tap_z"
@@ -916,9 +931,6 @@ class MedusaHCCalibrate:
         self.progress = 0.0
         tools = ()
         try:
-            stats = self.printer.lookup_object("print_stats", None)
-            if getattr(stats, "state", "") in ("printing", "paused"):
-                raise gcmd.error("Calibration is unavailable during a print")
             count = self._tool_count()
             tools = tuple(range(count))
             # Start only T0 before homing and Z tilt.  EddySeek runs with the

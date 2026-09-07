@@ -239,17 +239,12 @@ uninstall_module() {
     REMOVE_CONFIRMED=1
     remove_include
     remove_moonraker_updater
-    if [ -f "$TARGET_MODULE" ]; then
+    if [ -f "$TARGET_MODULE" ] || [ -L "$TARGET_MODULE" ]; then
         rm -f -- "$TARGET_MODULE"
         say "Removed Klipper module: $TARGET_MODULE"
     fi
     if [ -f "$TARGET_CONFIG" ]; then
-        if confirm "Delete the user calibration config $TARGET_CONFIG?"; then
-            rm -f -- "$TARGET_CONFIG"
-            say "Removed calibration configuration"
-        else
-            say "User calibration configuration was kept"
-        fi
+        say "User calibration configuration was kept: $TARGET_CONFIG"
     fi
     say "Removal complete. Restart Klipper only when the printer is idle."
 }
