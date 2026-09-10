@@ -818,6 +818,11 @@ class MedusaHCCalibrate:
         tools = tuple(tools)
         if not tools:
             return
+        if self.calibration_temperature <= 0.0:
+            self.gcode.respond_info(
+                "MedusaHC calibration heating skipped (calibration_temperature=0)"
+            )
+            return
         self._start_heaters(tools)
         self.gcode.respond_info(
             "MedusaHC calibration heating %s to %.1f C; waiting for T%d"
@@ -830,6 +835,8 @@ class MedusaHCCalibrate:
         self._wait_heater(wait_tool)
 
     def _start_heaters(self, tools):
+        if self.calibration_temperature <= 0.0:
+            return
         for tool in tools:
             self._run(
                 "SET_HEATER_TEMPERATURE HEATER=%s TARGET=%.3f"
