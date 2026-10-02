@@ -205,6 +205,20 @@ class MedusaHC:
     def _run(self, script):
         self.gcode.run_script_from_command(script)
 
+    def _set_part_fan(self, speed):
+        """Set part-cooling fan speed in 0..1.
+
+        Prefer Fan.set_speed (async). M106 uses a toolhead lookahead callback,
+        which may never flush after a failed pick/drop when no further moves
+        are queued — leaving the fan stuck at the dock-motion 100% setting.
+        """
+        speed = max(0., min(1., float(speed)))
+        fan = self.printer.lookup_object("fan", None)
+        if fan is not None:
+            fan.fan.set_speed(speed)
+            return
+        self._run("M106 S%d" % int(round(speed * 255.)))
+
     def _set_compat(self, variable, value):
         global_macro = self._macro_name("GLOBAL_STATE")
         self._run(
@@ -257,7 +271,7 @@ class MedusaHC:
         # Pick/drop turn the part fan on during latch motion; success paths
         # turn it off afterward. Failure must clear it too or it stays full.
         try:
-            self._run("M106 S0")
+            self._set_part_fan(0.)
         except Exception:
             logging.exception("MedusaHC: failed to stop part fan after error")
         stats = self.printer.lookup_object("print_stats", None)
