@@ -254,6 +254,12 @@ class MedusaHC:
         self.sensor_error = True
         self.last_error = message
         logging.error("MedusaHC: %s", message)
+        # Pick/drop turn the part fan on during latch motion; success paths
+        # turn it off afterward. Failure must clear it too or it stays full.
+        try:
+            self._run("M106 S0")
+        except Exception:
+            logging.exception("MedusaHC: failed to stop part fan after error")
         stats = self.printer.lookup_object("print_stats", None)
         print_was_active = getattr(stats, "state", "") in ("printing", "paused")
         try:
@@ -417,6 +423,7 @@ SET_VELOCITY_LIMIT ACCEL={old}""".format(
         self._wait_moves()
         if not self._wait_for_tool(-1):
             self._fail("MHC_DROP: dock sensors did not confirm an empty toolhead")
+        self._run("M106 S0")
         self.gcode.respond_info("MHC_DROP OK: T%d parked" % tool)
 
     def _pick(self, tool):
