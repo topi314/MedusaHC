@@ -272,12 +272,6 @@ class MedusaHC:
         self.sensor_error = True
         self.last_error = message
         logging.error("MedusaHC: %s", message)
-        # Pick/drop turn the part fan on during latch motion; success paths
-        # turn it off afterward. Failure must clear it too or it stays full.
-        try:
-            self._set_part_fan(0.)
-        except Exception:
-            logging.exception("MedusaHC: failed to stop part fan after error")
         stats = self.printer.lookup_object("print_stats", None)
         print_was_active = getattr(stats, "state", "") in ("printing", "paused")
         try:
@@ -423,8 +417,12 @@ G1 Y{safe} X{xapproach} F{feed}""".format(
         ))
         if not self.feeder_open:
             self._open()
-        self._run("""M106 S255
-G1 Y{brushapproach} F{feed}
+        # Part fan only for drop dock motion; always clear it afterward so a
+        # missed park cannot leave M106 S255 stuck on. Pick paths leave the
+        # fan alone so mid-print cooling is preserved.
+        self._set_part_fan(1.)
+        try:
+            self._run("""G1 Y{brushapproach} F{feed}
 G1 X{xprime} F{feed}
 G1 Y{latchapproach} F{feed}
 G1 X{xshift} F{feed}
@@ -432,16 +430,17 @@ G1 Y{latch} F{feed}
 G1 X{x} F{slow}
 G1 Y{safe} F{feed}
 SET_VELOCITY_LIMIT ACCEL={old}""".format(
-            safe=v["y_safe"], brushapproach=v["y_brush"] + 3*d,
-            xprime=v["x"] - v["x_prime_shift"]*d,
-            feed=v["feed"], latchapproach=v["y_latch"] + 8*d,
-            xshift=v["x"] - v["x_shift"]*d, latch=v["y_latch"], x=v["x"],
-            slow=v["slow_feed"], old=old_accel
-        ))
-        self._wait_moves()
-        if not self._wait_for_tool(-1):
-            self._fail("MHC_DROP: dock sensors did not confirm an empty toolhead")
-        self._set_part_fan(0.)
+                safe=v["y_safe"], brushapproach=v["y_brush"] + 3*d,
+                xprime=v["x"] - v["x_prime_shift"]*d,
+                feed=v["feed"], latchapproach=v["y_latch"] + 8*d,
+                xshift=v["x"] - v["x_shift"]*d, latch=v["y_latch"], x=v["x"],
+                slow=v["slow_feed"], old=old_accel
+            ))
+            self._wait_moves()
+            if not self._wait_for_tool(-1):
+                self._fail("MHC_DROP: dock sensors did not confirm an empty toolhead")
+        finally:
+            self._set_part_fan(0.)
         self.gcode.respond_info("MHC_DROP OK: T%d parked" % tool)
 
     def _pick(self, tool):
@@ -475,12 +474,9 @@ G1 X{xshift_more} F{slow}""".format(
         self._wait_moves()
         if not self._wait_for_tool(tool):
             self._fail("MHC_SET: sensors did not confirm T%d" % tool)
-        # Fan only after a confirmed pick so a miss never leaves it running.
-        self._set_part_fan(1.)
         self._close()
         self._after_pick(tool, v)
         self._run("SET_VELOCITY_LIMIT ACCEL=%s" % old_accel)
-        self._set_part_fan(0.)
         self.gcode.respond_info("MHC_SET OK: T%d installed" % tool)
 
     def _after_pick(self, tool, v):
@@ -603,10 +599,8 @@ G1 Y{safe} F{feed}""".format(
                     self._apply_offset(0, move=0)
                     self._run("SET_GCODE_OFFSET X=0 Y=0 MOVE=0")
                     self._run("G90\nG1 Y%s F%s" % (v["y_safe"], v["feed"]))
-                    self._set_part_fan(1.)
                     self._after_pick(tool, v)
                     self._run("SET_VELOCITY_LIMIT ACCEL=%s" % old_accel)
-                    self._set_part_fan(0.)
                     return
                 self._apply_offset(tool)
                 self.gcode.respond_info("MHC_SET: T%d already installed" % tool)
