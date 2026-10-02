@@ -208,13 +208,17 @@ class MedusaHC:
     def _set_part_fan(self, speed):
         """Set part-cooling fan speed in 0..1.
 
-        Prefer Fan.set_speed (async). M106 uses a toolhead lookahead callback,
-        which may never flush after a failed pick/drop when no further moves
-        are queued — leaving the fan stuck at the dock-motion 100% setting.
+        Prefer Fan.set_speed (async) and drop any pending GCodeRequestQueue
+        entries first. Dock paths issue M106 via toolhead lookahead; that can
+        leave a deferred M106 S255 in the queue which re-applies after an
+        earlier off and leaves the fan stuck at full speed on pick/drop miss.
         """
         speed = max(0., min(1., float(speed)))
         fan = self.printer.lookup_object("fan", None)
         if fan is not None:
+            gcrq = getattr(fan.fan, "gcrq", None)
+            if gcrq is not None:
+                del gcrq.rqueue[:]
             fan.fan.set_speed(speed)
             return
         self._run("M106 S%d" % int(round(speed * 255.)))
@@ -437,7 +441,7 @@ SET_VELOCITY_LIMIT ACCEL={old}""".format(
         self._wait_moves()
         if not self._wait_for_tool(-1):
             self._fail("MHC_DROP: dock sensors did not confirm an empty toolhead")
-        self._run("M106 S0")
+        self._set_part_fan(0.)
         self.gcode.respond_info("MHC_DROP OK: T%d parked" % tool)
 
     def _pick(self, tool):
@@ -461,8 +465,7 @@ G1 Y{latch} F{slow}
 G1 X{xshift2} F{feed}
 G1 X{xshift} F{slow}
 G1 Y{latch5} F{slow}
-G1 X{xshift_more} F{slow}
-M106 S255""".format(
+G1 X{xshift_more} F{slow}""".format(
             feed=v["feed"],
             latch3=v["y_latch"] + 20*d, latch=v["y_latch"], latch03=v["y_latch"] - .1*d,
             slow=v["slow_feed"], xshift2=v["x"] - (v["x_shift"] - 4)*d,
@@ -472,10 +475,12 @@ M106 S255""".format(
         self._wait_moves()
         if not self._wait_for_tool(tool):
             self._fail("MHC_SET: sensors did not confirm T%d" % tool)
+        # Fan only after a confirmed pick so a miss never leaves it running.
+        self._set_part_fan(1.)
         self._close()
         self._after_pick(tool, v)
         self._run("SET_VELOCITY_LIMIT ACCEL=%s" % old_accel)
-        self._run("M106 S0")
+        self._set_part_fan(0.)
         self.gcode.respond_info("MHC_SET OK: T%d installed" % tool)
 
     def _after_pick(self, tool, v):
@@ -597,10 +602,11 @@ G1 Y{safe} F{feed}""".format(
                     old_accel = self._old_accel()
                     self._apply_offset(0, move=0)
                     self._run("SET_GCODE_OFFSET X=0 Y=0 MOVE=0")
-                    self._run("G90\nG1 Y%s F%s\nM106 S255" % (
-                        v["y_safe"], v["feed"]))
+                    self._run("G90\nG1 Y%s F%s" % (v["y_safe"], v["feed"]))
+                    self._set_part_fan(1.)
                     self._after_pick(tool, v)
-                    self._run("SET_VELOCITY_LIMIT ACCEL=%s\nM106 S0" % old_accel)
+                    self._run("SET_VELOCITY_LIMIT ACCEL=%s" % old_accel)
+                    self._set_part_fan(0.)
                     return
                 self._apply_offset(tool)
                 self.gcode.respond_info("MHC_SET: T%d already installed" % tool)
