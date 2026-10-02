@@ -205,24 +205,6 @@ class MedusaHC:
     def _run(self, script):
         self.gcode.run_script_from_command(script)
 
-    def _set_part_fan(self, speed):
-        """Set part-cooling fan speed in 0..1.
-
-        Prefer Fan.set_speed (async) and drop any pending GCodeRequestQueue
-        entries first. Dock paths issue M106 via toolhead lookahead; that can
-        leave a deferred M106 S255 in the queue which re-applies after an
-        earlier off and leaves the fan stuck at full speed on pick/drop miss.
-        """
-        speed = max(0., min(1., float(speed)))
-        fan = self.printer.lookup_object("fan", None)
-        if fan is not None:
-            gcrq = getattr(fan.fan, "gcrq", None)
-            if gcrq is not None:
-                del gcrq.rqueue[:]
-            fan.fan.set_speed(speed)
-            return
-        self._run("M106 S%d" % int(round(speed * 255.)))
-
     def _set_compat(self, variable, value):
         global_macro = self._macro_name("GLOBAL_STATE")
         self._run(
@@ -417,12 +399,7 @@ G1 Y{safe} X{xapproach} F{feed}""".format(
         ))
         if not self.feeder_open:
             self._open()
-        # Part fan only for drop dock motion; always clear it afterward so a
-        # missed park cannot leave M106 S255 stuck on. Pick paths leave the
-        # fan alone so mid-print cooling is preserved.
-        self._set_part_fan(1.)
-        try:
-            self._run("""G1 Y{brushapproach} F{feed}
+        self._run("""G1 Y{brushapproach} F{feed}
 G1 X{xprime} F{feed}
 G1 Y{latchapproach} F{feed}
 G1 X{xshift} F{feed}
@@ -430,17 +407,15 @@ G1 Y{latch} F{feed}
 G1 X{x} F{slow}
 G1 Y{safe} F{feed}
 SET_VELOCITY_LIMIT ACCEL={old}""".format(
-                safe=v["y_safe"], brushapproach=v["y_brush"] + 3*d,
-                xprime=v["x"] - v["x_prime_shift"]*d,
-                feed=v["feed"], latchapproach=v["y_latch"] + 8*d,
-                xshift=v["x"] - v["x_shift"]*d, latch=v["y_latch"], x=v["x"],
-                slow=v["slow_feed"], old=old_accel
-            ))
-            self._wait_moves()
-            if not self._wait_for_tool(-1):
-                self._fail("MHC_DROP: dock sensors did not confirm an empty toolhead")
-        finally:
-            self._set_part_fan(0.)
+            safe=v["y_safe"], brushapproach=v["y_brush"] + 3*d,
+            xprime=v["x"] - v["x_prime_shift"]*d,
+            feed=v["feed"], latchapproach=v["y_latch"] + 8*d,
+            xshift=v["x"] - v["x_shift"]*d, latch=v["y_latch"], x=v["x"],
+            slow=v["slow_feed"], old=old_accel
+        ))
+        self._wait_moves()
+        if not self._wait_for_tool(-1):
+            self._fail("MHC_DROP: dock sensors did not confirm an empty toolhead")
         self.gcode.respond_info("MHC_DROP OK: T%d parked" % tool)
 
     def _pick(self, tool):
