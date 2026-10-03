@@ -49,6 +49,7 @@ TARGET_CONFIG_DIR="${MEDUSAHC_CONFIG_DIR:-${CONFIG_DIR}/MedusaHC}"
 TARGET_EXTRA_DIR="${KLIPPER_DIR}/klippy/extras"
 TARGET_CONTROLLER="${TARGET_EXTRA_DIR}/medusahc.py"
 TARGET_PIN_WATCH="${TARGET_EXTRA_DIR}/pin_watch.py"
+TARGET_DOCK_TEACH="${TARGET_EXTRA_DIR}/medusahc_dock_teach.py"
 
 SOURCE_CONFIG_DIR="${SCRIPT_DIR}/config/MedusaHC"
 SOURCE_EXTRA_DIR="${SCRIPT_DIR}/klippy/extras"
@@ -112,6 +113,7 @@ install_core() {
   require_layout
   [[ -f "${SOURCE_EXTRA_DIR}/medusahc.py" ]] || die "medusahc.py is missing from the package."
   [[ -f "${SOURCE_EXTRA_DIR}/pin_watch.py" ]] || die "pin_watch.py is missing from the package."
+  [[ -f "${SOURCE_EXTRA_DIR}/medusahc_dock_teach.py" ]] || die "medusahc_dock_teach.py is missing from the package."
   [[ -f "${SOURCE_CONFIG_DIR}/MHC_config.cfg" ]] || die "MHC_config.cfg is missing from the package."
   [[ -f "${SOURCE_CONFIG_DIR}/MHC_variables.cfg" ]] || die "MHC_variables.cfg is missing from the package."
   [[ -f "${SOURCE_CONFIG_DIR}/MHC_macros.cfg" ]] || die "MHC_macros.cfg is missing from the package."
@@ -130,6 +132,7 @@ install_core() {
   install_config_tree "${TARGET_CONFIG_DIR}"
   install_file "${SOURCE_EXTRA_DIR}/medusahc.py" "${TARGET_CONTROLLER}"
   install_file "${SOURCE_EXTRA_DIR}/pin_watch.py" "${TARGET_PIN_WATCH}"
+  install_file "${SOURCE_EXTRA_DIR}/medusahc_dock_teach.py" "${TARGET_DOCK_TEACH}"
   print_manual_steps
 }
 
@@ -138,8 +141,10 @@ update_core() {
   [[ -d "${TARGET_CONFIG_DIR}" ]] || die "Core is not installed in ${TARGET_CONFIG_DIR}. Run install first."
   [[ -f "${SOURCE_EXTRA_DIR}/medusahc.py" ]] || die "medusahc.py is missing from the package."
   [[ -f "${SOURCE_EXTRA_DIR}/pin_watch.py" ]] || die "pin_watch.py is missing from the package."
+  [[ -f "${SOURCE_EXTRA_DIR}/medusahc_dock_teach.py" ]] || die "medusahc_dock_teach.py is missing from the package."
   install_file "${SOURCE_EXTRA_DIR}/medusahc.py" "${TARGET_CONTROLLER}"
   install_file "${SOURCE_EXTRA_DIR}/pin_watch.py" "${TARGET_PIN_WATCH}"
+  install_file "${SOURCE_EXTRA_DIR}/medusahc_dock_teach.py" "${TARGET_DOCK_TEACH}"
   local examples="${TARGET_CONFIG_DIR}/upstream-examples"
   mkdir -p "${examples}"
   if [[ "$(id -u)" == 0 ]]; then
@@ -159,7 +164,7 @@ uninstall_core() {
   if [[ -f /etc/systemd/system/medusahc-control.service || -f "${INSTALL_HOME}/medusahc-control/medusahc_control/__main__.py" || -f /opt/medusahc-control/medusahc_control/__main__.py ]]; then
     die "MedusaHC Control is still installed. Remove it before removing Core."
   fi
-  rm -f -- "${TARGET_CONTROLLER}" "${TARGET_PIN_WATCH}"
+  rm -f -- "${TARGET_CONTROLLER}" "${TARGET_PIN_WATCH}" "${TARGET_DOCK_TEACH}"
   log "Removed MedusaHC Python scripts from Klipper extras."
   if [[ "${PURGE}" == 1 ]]; then
     local config_root target_root
@@ -182,9 +187,11 @@ uninstall_core() {
 show_status() {
   [[ -f "${TARGET_CONTROLLER}" ]] && controller=installed || controller=missing
   [[ -f "${TARGET_PIN_WATCH}" ]] && watcher=installed || watcher=missing
+  [[ -f "${TARGET_DOCK_TEACH}" ]] && dock_teach=installed || dock_teach=missing
   [[ -d "${TARGET_CONFIG_DIR}" ]] && configuration=present || configuration=missing
   log "medusahc.py: ${controller}"
   log "pin_watch.py: ${watcher}"
+  log "medusahc_dock_teach.py: ${dock_teach}"
   log "configuration: ${configuration} (${TARGET_CONFIG_DIR})"
 }
 
